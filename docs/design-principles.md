@@ -1,6 +1,6 @@
 # Roost design principles
 
-Status: design phase. This document records agreed directions; the library and example APIs have not been implemented yet. Details may still change during implementation.
+Status: working prototype. This document records the agreed design; the library implements it and the [examples](../examples) exercise it. Details may still change, and Roost is not packaged for installation yet.
 
 ## Scheme applications and the React runtime
 
@@ -32,8 +32,7 @@ Components receive one value of the distinct props type. Ordinary helper procedu
 
 ```scheme
 (define (user-card attributes)
-  (let ((name  (props-ref attributes #:name))
-        (email (props-ref attributes #:email #f)))
+  (let-props attributes (name (email #f))
     (h/section
       (props #:class "user-card")
       (h/h2 name)
@@ -42,7 +41,9 @@ Components receive one value of the distinct props type. Ordinary helper procedu
 (component user-card (props #:name "Ada"))
 ```
 
-The example illustrates agreed API semantics, not an implemented library. Import `props-ref` from `(roost props)` and `component` from `(roost hiccup)` when using these proposed modules.
+`props`, `props-ref`, and `let-props` come from `(roost props)`; `component` comes from `(roost hiccup)`.
+
+`let-props` binds each name to the property with the same keyword, optionally with a default. It is shorthand for `props-ref`:
 
 - `(props-ref attributes key)` returns the property's value, or raises an error if the key is missing.
 - `(props-ref attributes key default)` returns the default only when the key is missing.
@@ -50,6 +51,8 @@ The example illustrates agreed API semantics, not an implemented library. Import
 - `#:key` is passed to React as the element key and is not visible to the component, as in React.
 
 ## DOM properties
+
+`(roost dom)` provides every HTML element except `html`, `head`, and `body`.
 
 Property names on DOM nodes follow Reagent's conventions:
 
@@ -67,7 +70,7 @@ Property names on DOM nodes follow Reagent's conventions:
 ;; style: { marginTop: 8, "--accent": "blue" }
 ```
 
-Components written in Scheme read their props by keyword and see no name conversion.
+JavaScript components, such as React Router's `Link`, receive props under the same names, including `#:style`, following React's convention that components accept `className`, `htmlFor`, `aria-*`, and `data-*`. Components written in Scheme read their props by keyword and see no name conversion.
 
 ## Children
 
@@ -114,16 +117,16 @@ React Hooks are ordinary functions that React associates with the current compon
 (set-count! (lambda (n) (+ n 1)))   ; a procedure is an updater, as in React
 ```
 
-The first Hooks are `use-state` and `use-effect`. The design covers all React Hooks, and adding one does not require new mechanisms.
+`(roost hooks)` provides `use-state`, `use-effect`, and `use-ref`. `use-ref` returns the React ref object: pass it as `#:ref` to a DOM node, or read and write its `current` with `js/ref` and `js/set!`. Other React Hooks, and Hooks from JavaScript libraries, can be called directly through `(roost js)`; Roost adds named Hooks when applications need them, and adding one does not require new mechanisms.
 
 The bridge follows React's Rules of Hooks, preserves state update semantics, and retains React's per-item `Object.is` comparison for dependencies. Functions that React keeps stable, such as state setters, are also stable in Scheme: the same JavaScript function always maps to the same Scheme procedure. [Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks), [useEffect](https://react.dev/reference/react/useEffect).
 
 ## JavaScript interop
 
-The `(roost js)` module gives Scheme code access to JavaScript. Documentation imports it with `#:prefix js/`:
+The `(roost js)` module gives Scheme code access to JavaScript. Documentation imports it with the prefix `js/`:
 
 ```scheme
-(use-modules ((roost js) #:prefix js/))
+(import (prefix (roost js) js/))
 
 (define R (js/module "ramda"))
 
@@ -141,15 +144,18 @@ Values cross the boundary in two ways:
 
 JavaScript components, such as React Router's `Link`, can be used directly as node types. Errors thrown by JavaScript become Scheme conditions, so `guard` and `dynamic-wind` behave as usual.
 
+A Scheme procedure called from JavaScript receives the call's arguments without trailing `undefined` values, since JavaScript often passes more arguments than a callback uses. Some libraries, such as Ramda's `curry`, read a function's `length`; declare it with `(js/function procedure length)`, which also passes at most that many arguments.
+
+Stylesheets from npm packages are imported for their side effect with `(js/module "todomvc-app-css/index.css")`; the Vite plugin bundles them. Without the plugin, link the stylesheet from the page instead.
+
 ## Module imports and names
 
-The DOM module exports ordinary tag names. Documentation uses `#:prefix h/` by default; applications can explicitly import short names with `#:select`. Tags are not injected into application scope automatically, and Roost does not add its own import syntax. [Guile module imports](https://www.gnu.org/software/guile/manual/html_node/Using-Guile-Modules.html).
-
-The following examples illustrate the proposed import style. The modules and tag constructors have not been implemented yet.
+Roost's modules are R7RS libraries, imported with `import` as Hoot programs do. The DOM module exports ordinary tag names. Documentation imports it with the prefix `h/`; applications can instead import short names with `only`. Tags are not injected into application scope automatically, and Roost does not add its own import syntax. [R7RS libraries](https://small.r7rs.org/attachment/r7rs.pdf).
 
 ```scheme
-(use-modules ((roost dom) #:prefix h/)
-             ((roost props) #:select (props)))
+(import (scheme base)
+        (prefix (roost dom) h/)
+        (only (roost props) props))
 
 (h/section
   (props #:class "card")
@@ -160,7 +166,7 @@ The following examples illustrate the proposed import style. The modules and tag
 A calling module may instead select short names:
 
 ```scheme
-(use-modules ((roost dom) #:select (section h2 p)))
+(import (only (roost dom) section h2 p))
 
 (section (h2 title) (p "Hello"))
 ```

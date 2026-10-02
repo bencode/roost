@@ -2,8 +2,101 @@
 
 Scheme-first React bindings powered by Guile Hoot.
 
-Roost is a library in the design phase. Its goal is to let you write complete React applications in Scheme and compile them to WebAssembly with Hoot. The library itself is written in Scheme on top of a small, stable JavaScript kernel, and existing JavaScript libraries remain usable from Scheme.
+Roost lets you write React applications in Scheme and compile them to WebAssembly with [Hoot](https://spritely.institute/hoot/). Components, Hooks, event handlers, and business logic are Scheme; React and existing JavaScript libraries are used directly from Scheme. The library itself is written in Scheme on top of a small, stable JavaScript kernel.
 
-The design uses Hiccup to express UI and native React Hooks to manage state and effects, while preserving Scheme expressions, lexical scope, and module imports.
+Roost is a working prototype. The examples run, but the library is not packaged for installation yet and its API may still change.
 
-There is no installable Roost library yet, and the API is still being designed. See the [design principles](docs/design-principles.md) for the agreed direction.
+```scheme
+(import (scheme base)
+        (prefix (roost dom) h/)
+        (only (roost props) props let-props)
+        (only (roost hiccup) component)
+        (only (roost react) render-root)
+        (only (roost hooks) use-state))
+
+(define (counter attributes)
+  (let-props attributes ((start 0))
+    (let-values (((count set-count!) (use-state start)))
+      (h/section
+       (h/output count)
+       (h/button (props #:on-click (lambda (event) (set-count! (lambda (n) (+ n 1)))))
+                 "+1")))))
+
+(render-root (component counter (props #:start 0)) "root")
+```
+
+## Requirements
+
+- [Guile](https://www.gnu.org/software/guile/) 3.0.11 and [Hoot](https://spritely.institute/hoot/) 0.9.0, with `guild` on `PATH` and Hoot's modules on `GUILE_LOAD_PATH`
+- Node.js 24 and pnpm 10
+
+## Getting started
+
+```sh
+pnpm install
+pnpm dev      # serve the examples at http://localhost:5173
+pnpm build    # build the examples into dist/
+pnpm test     # Guile and Vitest test suites
+```
+
+The first visit to an example compiles its Scheme to WebAssembly, which takes a few seconds. Saving a `.scm` file recompiles it and reloads the page.
+
+## Examples
+
+| Example | Shows |
+| --- | --- |
+| [`examples/counter`](examples/counter/main.scm) | `use-state`, `use-effect`, DOM events |
+| [`examples/router-query`](examples/router-query/main.scm) | React Router and TanStack Query used from Scheme |
+| [`examples/todomvc`](examples/todomvc/main.scm) | The complete [TodoMVC](https://todomvc.com) application: editing, filtering with routes, persistence |
+
+Each example is an `index.html` and a `main.scm`. The page loads the Scheme entry directly:
+
+```html
+<div id="root"></div>
+<script type="module" src="./main.scm"></script>
+```
+
+## How the Vite plugin helps
+
+[`tooling/vite-plugin-roost.js`](tooling/vite-plugin-roost.js) compiles `.scm` entries with `guild compile-wasm`, finds the npm packages named in `(js/module "…")` calls and imports them, and serves Hoot's runtime files. It only automates steps you can do by hand.
+
+## Using Roost without the plugin
+
+Compile the application and copy Hoot's runtime files next to it:
+
+```sh
+guild compile-wasm -L <roost>/modules --bundle -o public/app.wasm main.scm
+```
+
+Load Hoot's `reflect.js` as a classic script, then start the application with the loader, registering every package the Scheme code passes to `js/module`:
+
+```html
+<div id="root"></div>
+<script src="/reflect.js"></script>
+<script type="module" src="/main.js"></script>
+```
+
+```js
+import * as React from 'react'
+import * as ReactDOMClient from 'react-dom/client'
+import { boot } from '<roost>/js/roost-loader.js'
+
+boot({
+  Scheme, // defined by reflect.js
+  wasm: '/app.wasm',
+  reflectWasmDir: '',
+  modules: { react: React, 'react-dom/client': ReactDOMClient },
+})
+```
+
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `modules/roost/` | The Scheme library: `props`, `hiccup`, `dom`, `react`, `hooks`, `js` |
+| `js/` | The JavaScript kernel and loader |
+| `tooling/` | The Vite plugin |
+| `examples/` | Example applications |
+| `tests/` | Guile and Vitest tests |
+
+See the [design principles](docs/design-principles.md) for how Roost works and why.
