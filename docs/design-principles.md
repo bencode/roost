@@ -34,7 +34,32 @@ The example illustrates agreed API semantics, not an implemented library. Import
 - `(props-ref attributes key default)` returns the default only when the key is missing.
 - Existing values, including `#f`, are returned unchanged. Object and procedure references are preserved.
 
-The representation and passing rules for `children` are still being designed.
+## Children
+
+Trailing children become the component's `#:children` property. A container component reads that property with `props-ref` and forwards the value unchanged:
+
+```scheme
+(define (card attributes)
+  (h/section
+    (props #:class "card")
+    (props-ref attributes #:children #f)))
+
+(component card
+  (props)
+  (h/h2 "Title")
+  (h/p "Body"))
+```
+
+- With no trailing children, an explicit `#:children` property is preserved. If it was absent, it remains absent.
+- One trailing child preserves that value.
+- Multiple trailing children form an ordered collection, preserving nested collection boundaries.
+- Trailing children override an explicit `#:children` property.
+
+Treat children as opaque content when forwarding them, rather than assuming they are always a list. This follows React's approach to [children](https://react.dev/reference/react/Children).
+
+A dynamic collection such as `(map item-view items)` remains a single collection child. It is not automatically spread into separate arguments or recursively flattened, preserving the boundary needed for React's dynamic-list key checks. [createElement](https://react.dev/reference/react/createElement).
+
+The Wasm boundary representation and conversion to React nodes are still being designed. In particular, the adapter must preserve the distinction between static trailing children and dynamic collections when forwarding them through components.
 
 ## Native React Hooks
 
