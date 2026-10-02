@@ -1,26 +1,26 @@
-# Roost 设计原则
+# Roost design principles
 
-状态：设计阶段。本文记录已确认的方向，不代表库或示例 API 已实现。
+Status: design phase. This document records agreed directions; the library and example APIs have not been implemented yet.
 
-## Scheme 应用与 React 运行时
+## Scheme applications and the React runtime
 
-应用组件、事件处理和业务逻辑以 Scheme 编写，经 Guile Hoot 编译为 Wasm。库内的 JavaScript 桥接负责连接 React；应用作者无需为每个组件手写 JavaScript 包装。
+Roost aims to let you write application components, event handlers, and business logic in Scheme, compiled to Wasm with Guile Hoot. The library's JavaScript bridge connects to React, so application authors do not need to write a JavaScript wrapper for each component.
 
-UI 采用 Hiccup 表达。书写方式沿用 Scheme 的表达式、词法绑定和函数组合，利用宏能力组织构造语法；不以 quasiquote/unquote 作为默认 UI 写法。节点的内部表示和组件构造接口仍待定。
+UI is expressed as Hiccup. The construction syntax follows Scheme's expressions, lexical bindings, and function composition, using macros where needed. Quasiquote and unquote are not the default way to write UI. The internal node representation and component construction interface remain undecided.
 
-props 使用独立类型，以 `(props #:class "card")` 构造，与节点和 children 集合按类型区分。属性名称到 React 的映射规则仍待定。
+Props use a distinct type, constructed with `(props #:class "card")`. Types distinguish props from nodes and collections of children. The mapping from property names to React props remains undecided.
 
-## React 原生 Hooks
+## Native React Hooks
 
-状态、更新调度、渲染、effect 和 cleanup 由 React 承担。Roost 不引入 ratom、reaction、自动依赖追踪或独立更新队列。
+React owns state, update scheduling, rendering, effects, and cleanup. Roost does not introduce ratoms, reactions, automatic dependency tracking, or a separate update queue.
 
-桥接层遵守 React Hooks 调用规则，保留状态更新语义及依赖逐项 `Object.is` 比较；同一个 Scheme 值不应因重复包装而制造依赖变化。[Hooks 规则](https://react.dev/reference/rules/rules-of-hooks)、[useEffect](https://react.dev/reference/react/useEffect)
+The bridge must follow React's Rules of Hooks, preserve state update semantics, and retain React's per-item `Object.is` comparison for dependencies. Rewrapping the same Scheme value must not cause spurious dependency changes. [Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks), [useEffect](https://react.dev/reference/react/useEffect).
 
-## 模块导入与名称
+## Module imports and names
 
-DOM 模块导出普通标签名称。文档默认通过 `#:prefix h/` 导入；需要短名称时，通过 `#:select` 显式导入。标签不自动注入应用作用域，库不增加自定义导入语法。[Guile 模块导入](https://www.gnu.org/software/guile/manual/html_node/Using-Guile-Modules.html)
+The DOM module exports ordinary tag names. Documentation uses `#:prefix h/` by default; applications can explicitly import short names with `#:select`. Tags are not injected into application scope automatically, and Roost does not add its own import syntax. [Guile module imports](https://www.gnu.org/software/guile/manual/html_node/Using-Guile-Modules.html).
 
-下面展示拟定模块的导入风格；模块及标签构造器尚未实现。
+The following examples illustrate the proposed import style. The modules and tag constructors have not been implemented yet.
 
 ```scheme
 (use-modules ((roost dom) #:prefix h/)
@@ -32,7 +32,7 @@ DOM 模块导出普通标签名称。文档默认通过 `#:prefix h/` 导入；�
   (h/p "Hello"))
 ```
 
-也允许在调用模块中选择短名称：
+A calling module may instead select short names:
 
 ```scheme
 (use-modules ((roost dom) #:select (section h2 p)))
@@ -40,4 +40,4 @@ DOM 模块导出普通标签名称。文档默认通过 `#:prefix h/` 导入；�
 (section (h2 title) (p "Hello"))
 ```
 
-前缀由调用者选择。`h/section` 是导入后的 Scheme 标识符，节点构造的具体 API 仍在设计。
+Callers choose the prefix. `h/section` is an imported Scheme identifier; the concrete node construction API is still being designed.

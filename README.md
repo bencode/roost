@@ -2,8 +2,8 @@
 
 Scheme-first React bindings powered by Guile Hoot.
 
-Roost 正在设计中，目标是用 Scheme 编写 React 应用，经 Hoot 编译为 WebAssembly，由库内的 JavaScript 桥接连接 React。
+Roost is a library in the design phase. Its goal is to let you write React applications in Scheme, compile them to WebAssembly with Hoot, and connect them to React through the library's JavaScript bridge.
 
-设计采用 Hiccup 表达 UI，使用 React 原生 Hooks，并保留 Scheme 的表达式、词法作用域和模块导入方式。
+The design uses Hiccup to express UI and native React Hooks to manage state and effects, while preserving Scheme expressions, lexical scope, and module imports.
 
-当前尚无可安装的 Roost 库，具体 API 仍在设计。已确认的方向见 [设计原则](docs/design-principles.md)。
+There is no installable Roost library yet, and the API is still being designed. See the [design principles](docs/design-principles.md) for the agreed direction.
