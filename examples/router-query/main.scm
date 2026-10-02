@@ -1,7 +1,7 @@
 ;; React Router and TanStack Query used directly from Scheme; no bridge code.
 (import (scheme base)
         (prefix (roost dom) h/)
-        (only (roost props) props props-ref)
+        (only (roost props) props)
         (only (roost hiccup) component)
         (only (roost react) render-root)
         (prefix (roost js) js/))

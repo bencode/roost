@@ -172,7 +172,7 @@
             (h/footer
              (props #:class "footer")
              (h/span (props #:class "todo-count")
-                     (h/strong (number->string left))
+                     (h/strong left)
                      (if (= left 1) " item left" " items left"))
              (h/ul (props #:class "filters")
                    (filter-link "/" "All")
