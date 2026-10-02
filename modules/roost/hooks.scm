@@ -8,9 +8,15 @@
     ;; Thin layers over the React functions of the same name; React's semantics apply.
     ;; Lazy: Hoot evaluates library bodies at expansion time, where JavaScript is absent.
     (define react (delay (js/module "react")))
-    (define (react-use-state . args) (apply (js/ref (force react) "useState") args))
-    (define (react-use-effect . args) (apply (js/ref (force react) "useEffect") args))
-    (define (react-use-ref . args) (apply (js/ref (force react) "useRef") args))
+
+    ;; The React function of that name, looked up once on first use.
+    (define (react-hook name)
+      (let ((hook (delay (js/ref (force react) name))))
+        (lambda args (apply (force hook) args))))
+
+    (define react-use-state (react-hook "useState"))
+    (define react-use-effect (react-hook "useEffect"))
+    (define react-use-ref (react-hook "useRef"))
 
     ;; A procedure as init is a lazy initializer, and the setter treats a procedure as
     ;; an updater, exactly as in React.
