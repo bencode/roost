@@ -12,7 +12,7 @@ import { boot } from '../js/roost-loader.js'
 import { compileScheme, hootPaths } from '../tooling/vite-plugin-roost.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const roots = ['identity', 'children', 'unkeyed', 'dom', 'counter', 'bad', 'js-component', 'js-identity']
+const roots = ['identity', 'children', 'unkeyed', 'dom', 'counter', 'bad', 'js-component', 'js-identity', 'mutable']
 const errors = []
 const probeCallbacks = []
 
@@ -88,6 +88,15 @@ describe('children', () => {
     expect(byId('keyed').textContent).toBe('ab')
     expect(byId('unkeyed').textContent).toBe('xy')
     expect(keyWarnings()).toHaveLength(1)
+  })
+})
+
+describe('strings', () => {
+  it('show the current content of a mutated string', async () => {
+    expect(byId('mutable-title').textContent).toBe('before')
+    expect(byId('mutable-title').className).toBe('literal')
+    await click('mutate')
+    expect(byId('mutable-title').textContent).toBe('Before')
   })
 })
 

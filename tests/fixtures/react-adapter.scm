@@ -108,6 +108,18 @@
      (h/button (props #:id "js-rerender" #:on-click (lambda (event) (set-n! (+ n 1)))) "rerender")
      (component Probe (props #:callback stable-callback #:count n)))))
 
+;; Literal strings are cached by identity; a mutable string must show its current content.
+(define mutable-title (string-copy "before"))
+(define (mutable-text attributes)
+  (let-values (((n set-n!) (use-state 0)))
+    (h/div
+     (h/button (props #:id "mutate"
+                      #:on-click (lambda (event)
+                                   (string-set! mutable-title 0 #\B)
+                                   (set-n! (+ n 1))))
+               "mutate")
+     (h/p (props #:id "mutable-title" #:class "literal") mutable-title))))
+
 ;; A JavaScript component receives DOM-style prop names.
 (define Box (js/ref (js/module "test-components") "Box"))
 
@@ -115,6 +127,7 @@
                                    #:style (props #:margin-top 8 #:--accent "blue")))
              "js-component")
 (render-root (component js-identity-parent (props)) "js-identity")
+(render-root (component mutable-text (props)) "mutable")
 (render-root (component identity-parent (props)) "identity")
 (render-root (component children-demo (props)) "children")
 (render-root (component unkeyed-demo (props)) "unkeyed")

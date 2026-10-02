@@ -1,6 +1,7 @@
 // React builder: Scheme walks a Hiccup tree and drives these functions through direct,
 // fixed-type calls; the builder assembles standard React elements on a frame stack.
-// Names arrive already converted and cached, so only content strings cross as text.
+// Names arrive already converted and cached. Immutable Scheme strings (literals) are
+// passed as objects and looked up in a WeakMap, so each converts to JavaScript once.
 //
 // Frames: element {type, props, children} becomes React.createElement(type, props,
 // ...children), keeping trailing children static; object {object} and array {array}
@@ -9,6 +10,15 @@ export const reactBuilder = () => {
   let React
   let dispatch
   const stack = []
+  const texts = new WeakMap()
+  // Calls with a string object return 0 when it is not yet known; Scheme then
+  // remembers it and calls again.
+  const withText = (string, use) => {
+    const text = texts.get(string)
+    if (text === undefined) return 0
+    use(text)
+    return 1
+  }
 
   const top = () => stack[stack.length - 1]
   const field = (name, value) => {
@@ -38,6 +48,12 @@ export const reactBuilder = () => {
     openElement: type => {
       stack.push({ type, props: {}, children: [] })
     },
+    remember: (string, text) => {
+      texts.set(string, text)
+    },
+    openTagText: string => withText(string, type => stack.push({ type, props: {}, children: [] })),
+    fieldText: (name, string) => withText(string, text => field(name, text)),
+    itemText: string => withText(string, item),
     openObject: () => {
       stack.push({ object: {} })
     },

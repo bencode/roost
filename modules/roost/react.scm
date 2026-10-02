@@ -6,6 +6,7 @@
           (only (guile) keyword->symbol)
           (hoot ffi)
           (hoot hashtables)
+          (hoot inline-wasm)
           (roost props)
           (prefix (roost js) js/))
   (begin
@@ -32,6 +33,31 @@
     (define-foreign %item-number "roostReact" "item" f64 -> none)
     (define-foreign %item-value "roostReact" "item" (ref null extern) -> none)
     (define-foreign %item-bool "roostReact" "itemBool" i32 -> none)
+    (define-foreign %remember "roostReact" "remember" (ref eq) (ref string) -> none)
+    (define-foreign %open-tag-text "roostReact" "openTagText" (ref eq) -> i32)
+    (define-foreign %field-text "roostReact" "fieldText" (ref null extern) (ref eq) -> i32)
+    (define-foreign %item-text "roostReact" "itemText" (ref eq) -> i32)
+
+    ;; Immutable strings (literals) are passed as objects; the builder keeps their
+    ;; JavaScript text in a WeakMap, so each converts once. Mutable strings may change,
+    ;; so they always convert.
+    (define (mutable-string? s)
+      (%inline-wasm
+       '(func (param $s (ref eq)) (result (ref eq))
+          (if (ref eq) (ref.test $mutable-string (local.get $s))
+              (then (ref.i31 (i32.const 17)))
+              (else (ref.i31 (i32.const 1)))))
+       s))
+
+    (define (by-identity s pass)
+      (when (= 0 (pass s))
+        (%remember s s)
+        (pass s)))
+
+    (define (open-tag tag)
+      (if (mutable-string? tag)
+          (%open-tag tag)
+          (by-identity tag %open-tag-text)))
 
     ;; Two or more trailing children of a component. Forwarded through a Fragment so
     ;; React treats them as static children (no key checks), unlike dynamic lists.
@@ -129,7 +155,11 @@
 
     ;; A value goes either into the children of the open element or array (name #f), or
     ;; into a named field of the open element or object.
-    (define (put-string name s) (if name (%field-string name s) (%item-string s)))
+    (define (put-string name s)
+      (cond
+       ((mutable-string? s) (if name (%field-string name s) (%item-string s)))
+       (name (by-identity s (lambda (s) (%field-text name s))))
+       (else (by-identity s %item-text))))
     (define (put-number name n) (if name (%field-number name (number->js n)) (%item-number (number->js n))))
     (define (put-bool name b) (if name (%field-bool name (if b 1 0)) (%item-bool (if b 1 0))))
     (define (put-value name v) (if name (%field-value name (js/scheme->js v)) (%item-value (js/scheme->js v))))
@@ -158,7 +188,7 @@
         (let ((type (vector-ref node 0)))
           (cond
            ((string? type)
-            (%open-tag type)
+            (open-tag type)
             (for-each emit-dom-prop (entries attributes))
             (emit-children children))
            ((or (js/value? type) (js/function? type))
@@ -198,7 +228,7 @@
         (%open-element (render->react-type render))
         (%field-scheme (dom-name #:roost-props) component-props)
         (when key
-          (%field-string (dom-name #:key) (react-key (cdr key))))))
+          (put-key (cdr key)))))
 
     (define (entries->props entries)
       (apply props (apply append (map (lambda (e) (list (car e) (cdr e))) entries))))
@@ -210,10 +240,12 @@
          ((memq (caar rest) keys) (loop (cdr rest) acc))
          (else (loop (cdr rest) (cons (car rest) acc))))))
 
-    (define (react-key value)
+    ;; React turns a numeric key into its decimal string itself, so integers pass as is.
+    (define (put-key value)
       (cond
-       ((string? value) value)
-       ((exact-integer? value) (number->string value))
+       ((string? value) (put-string (dom-name #:key) value))
+       ((and (exact-integer? value) (<= (abs value) max-safe-integer)) (put-number (dom-name #:key) value))
+       ((exact-integer? value) (put-string (dom-name #:key) (number->string value)))
        (else (error "node->react: key must be a string or an exact integer" value))))
 
     ;;; Props
@@ -223,10 +255,10 @@
     (define (emit-dom-prop entry)
       (let ((key (car entry)) (value (cdr entry)))
         (cond
-         ((eq? key #:key) (%field-string (dom-name key) (react-key value)))
+         ((eq? key #:key) (put-key value))
          ((eq? key #:children) (emit-child value (dom-name key)))
          ((eq? key #:style) (emit-style value))
-         ((string? value) (%field-string (dom-name key) value))
+         ((string? value) (put-string (dom-name key) value))
          ((real? value) (%field-number (dom-name key) (number->js value)))
          ((boolean? value) (%field-bool (dom-name key) (if value 1 0)))
          ((procedure? value)
@@ -243,7 +275,7 @@
       (for-each (lambda (entry)
                   (let ((value (cdr entry)))
                     (cond
-                     ((string? value) (%field-string (style-name (car entry)) value))
+                     ((string? value) (put-string (style-name (car entry)) value))
                      ((real? value) (%field-number (style-name (car entry)) (number->js value)))
                      (else (error "node->react: unsupported style value" value)))))
                 (props-entries style))
