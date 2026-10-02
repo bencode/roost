@@ -10,6 +10,17 @@
 (define (log! . items)
   (js/method (js/ref js/global "roostLog") "push" (apply js/array items)))
 
+;; JavaScript exceptions from calls and from property writes become js-error conditions.
+(define (js-error-name thunk)
+  (guard (e ((js/error? e) (js/ref (js/error-value e) "name")))
+    (thunk)
+    "no error"))
+
+(log! "json-parse" (js-error-name (lambda () ((js/ref js/global "JSON" "parse") "{bad"))))
+(log! "frozen-set"
+      (js-error-name
+       (lambda () (js/set! (js/method (js/ref js/global "Object") "freeze" (js/object "a" 1)) "a" 2))))
+
 ;; Identity: re-rendering the parent keeps the same child component mounted.
 (define (child attributes)
   ;; An effect may return no values; (values) is valid Scheme.

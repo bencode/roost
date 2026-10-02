@@ -17,7 +17,7 @@
     ;; went out opaquely are recognised again inside Wasm by scheme-value?.
     (define-foreign %module "roost" "module" (ref string) -> (ref null extern))
     (define-foreign %get "roost" "get" (ref null extern) (ref string) -> (ref null extern))
-    (define-foreign %set! "roost" "set" (ref null extern) (ref string) (ref null extern) -> none)
+    (define-foreign %set! "roost" "set" (ref null extern) (ref string) (ref null extern) -> (ref null extern))
     (define-foreign %object "roost" "object" -> (ref extern))
     (define-foreign %array "roost" "array" -> (ref extern))
     (define-foreign %push! "roost" "push" (ref extern) (ref null extern) -> none)
@@ -234,21 +234,25 @@
           (error "js/module: module is not registered" name))
         (->scheme value)))
 
+    ;; Property access from the public API; getters and setters may throw.
+    (define (get-checked object key)
+      (checked (%get object (key->string key))))
+
     (define (js-ref object key . keys)
       (let loop ((value (->js object)) (key key) (keys keys))
-        (let ((next (%get value (key->string key))))
+        (let ((next (get-checked value key)))
           (cond
            ((null? keys) (->scheme next))
            ((nullish? next) (error "js/ref: property is null or undefined" key))
            (else (loop next (car keys) (cdr keys)))))))
 
     (define (js-set! object key value)
-      (%set! (->js object) (key->string key) (->js value))
+      (checked (%set! (->js object) (key->string key) (->js value)))
       unspecified)
 
     (define (method object name . args)
       (let* ((target (->js object))
-             (fn (%get target name)))
+             (fn (get-checked target name)))
         (unless (string=? "function" (%type-of fn))
           (error "js/method: not a function" name))
         (call fn target args)))
@@ -277,14 +281,14 @@
       (let ((value (if (null? keys)
                        (->js object)
                        (let loop ((value (->js object)) (keys keys))
-                         (let ((next (%get value (key->string (car keys)))))
+                         (let ((next (get-checked value (car keys))))
                            (if (null? (cdr keys)) next (loop next (cdr keys))))))))
         (if (and (not (member (%type-of value) '("number" "string" "boolean" "undefined" "null" "function")))
                  (scheme-value? value))
             "scheme"
             (%type-of value))))
 
-    (define (value? v) (external? v))
+    (define (value? v) (or (external? v) (global? v)))
 
     (define (property-name keyword)
       (let loop ((chars (string->list (symbol->string (keyword->symbol keyword))))

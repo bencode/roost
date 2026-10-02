@@ -15,10 +15,11 @@ const guarded = thunk => {
 
 export const kernel = modules => ({
   module: name => modules[name],
-  get: (object, key) => object[key],
-  set: (object, key, value) => {
-    object[key] = value
-  },
+  get: (object, key) => guarded(() => object[key]),
+  set: (object, key, value) =>
+    guarded(() => {
+      object[key] = value
+    }),
   object: () => ({}),
   array: () => [],
   push: (array, value) => {

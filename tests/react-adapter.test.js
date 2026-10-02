@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-// Uses the plugin-free path: compile with guild, then boot with the loader.
+// Compiles with guild and boots with the loader directly, as without the Vite plugin;
+// only reflect.js is loaded through the plugin's hoot:reflect module.
 import { readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -105,6 +106,13 @@ describe('hooks', () => {
     expect(stable.every(entry => entry === 'setter-stable true')).toBe(true)
     expect(log().filter(entry => entry.startsWith('effect'))).toEqual(['effect 0'])
     expect(log()).not.toContain('cleanup')
+  })
+})
+
+describe('JavaScript exceptions', () => {
+  it('become js-error conditions that guard can handle', () => {
+    expect(log()).toContain('json-parse SyntaxError')
+    expect(log()).toContain('frozen-set TypeError')
   })
 })
 
