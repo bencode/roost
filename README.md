@@ -94,7 +94,7 @@ boot({
 | Path | Contents |
 | --- | --- |
 | `modules/roost/` | The Scheme library: `props`, `hiccup`, `dom`, `react`, `hooks`, `js` |
-| `js/` | The JavaScript kernel and loader |
+| `js/` | The JavaScript kernel, the React builder, and the loader |
 | `tooling/` | The Vite plugin |
 | `examples/` | Example applications |
 | `tests/` | Guile and Vitest tests |

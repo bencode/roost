@@ -6,7 +6,7 @@ Status: working prototype. This document records the agreed design; the library 
 
 Roost aims to let you write complete web applications in Scheme, compiled to Wasm with Guile Hoot. Components, Hooks, event handlers, and business logic are all Scheme. Mature JavaScript libraries such as React Router, TanStack Query, or Ramda remain ordinary dependencies, called from Scheme.
 
-The library itself is written in Scheme as well. Its JavaScript side is a small, generic kernel that supplies only what Hoot does not provide: reading modules and properties, calling functions and constructors, turning Scheme procedures into JavaScript functions, and converting primitive values. The kernel knows nothing about React. Once it is complete, it should stay stable: adding a Hook, using a browser API, or integrating a JavaScript library should require only Scheme code, not new bridge functions.
+The library itself is written in Scheme as well. Its JavaScript side is small and stable: a generic kernel that supplies only what Hoot does not provide (reading modules and properties, calling functions and constructors, turning Scheme procedures into JavaScript functions, converting primitive values), and a React builder that assembles elements with `createElement` while Scheme walks the UI tree. Adding a Hook, using a browser API, or integrating a JavaScript library requires only Scheme code, not new bridge functions.
 
 Roost does not hide React. Scheme names map one-to-one to React APIs (`use-state` is `useState`), and React's semantics, rules, and documentation apply unchanged.
 
@@ -119,6 +119,8 @@ React Hooks are ordinary functions that React associates with the current compon
 
 `(roost hooks)` provides `use-state`, `use-effect`, and `use-ref`. `use-ref` returns the React ref object: pass it as `#:ref` to a DOM node, or read and write its `current` with `js/ref` and `js/set!`. Other React Hooks, and Hooks from JavaScript libraries, can be called directly through `(roost js)`; Roost adds named Hooks when applications need them, and adding one does not require new mechanisms.
 
+Event handlers on DOM elements (`#:on-…` properties) get a fresh JavaScript function on each render, exactly like inline handlers in JSX; React DOM does not compare them. A procedure passed anywhere else, such as a prop of a JavaScript component or a Hook dependency, always maps to the same JavaScript function, so identity-based optimizations keep working.
+
 The bridge follows React's Rules of Hooks, preserves state update semantics, and retains React's per-item `Object.is` comparison for dependencies. Functions that React keeps stable, such as state setters, are also stable in Scheme: the same JavaScript function always maps to the same Scheme procedure. [Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks), [useEffect](https://react.dev/reference/react/useEffect).
 
 ## JavaScript interop
@@ -140,6 +142,7 @@ The `(roost js)` module gives Scheme code access to JavaScript. Documentation im
 Values cross the boundary in two ways:
 
 - **Shallow conversion** applies to every call. Numbers, strings, and booleans convert to their counterparts. JavaScript `null` and `undefined` become `#f`. JavaScript functions become Scheme procedures that can be called directly, and Scheme procedures become JavaScript functions. Other Scheme values, such as lists and records, pass through unchanged and come back as the same object, so a JavaScript library can store Scheme data. Other JavaScript objects stay opaque on the Scheme side.
+  `js/scheme->js` performs this shallow conversion explicitly and returns the JavaScript value.
 - **Deep conversion** is explicit. `js/from-scheme` turns Scheme data into plain JavaScript data: lists become arrays, and props become objects with camelCase keys. `js/to-scheme` converts in the opposite direction. Use it where a library inspects data, such as a query key or a route configuration.
 
 JavaScript components, such as React Router's `Link`, can be used directly as node types. Errors thrown by JavaScript become Scheme conditions, so `guard` and `dynamic-wind` behave as usual.

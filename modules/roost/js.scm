@@ -1,6 +1,6 @@
 (define-library (roost js)
   (export global module (rename js-ref ref) (rename js-set! set!) method new function function?
-          array object from-scheme to-scheme typeof value?
+          array object from-scheme to-scheme (rename ->js scheme->js) typeof value?
           (rename js-error? error?) (rename js-error-value error-value)
           make-weak-table weak-table-ref weak-table-set!
           property-name set-node-converter!)

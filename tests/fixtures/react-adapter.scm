@@ -99,12 +99,22 @@
      (h/button (props #:id "bad-trigger" #:on-click (lambda (event) (set-bad! #t))) "break")
      (if bad? (h/p 'not-a-child) (h/p "ok")))))
 
+;; A procedure passed to a JavaScript component keeps one function across renders.
+(define Probe (js/ref (js/module "test-components") "Probe"))
+(define (stable-callback value) value)
+(define (js-identity-parent attributes)
+  (let-values (((n set-n!) (use-state 0)))
+    (h/div
+     (h/button (props #:id "js-rerender" #:on-click (lambda (event) (set-n! (+ n 1)))) "rerender")
+     (component Probe (props #:callback stable-callback #:count n)))))
+
 ;; A JavaScript component receives DOM-style prop names.
 (define Box (js/ref (js/module "test-components") "Box"))
 
 (render-root (component Box (props #:id "box" #:class "selected" #:aria-label "Box" #:data-kind "demo"
                                    #:style (props #:margin-top 8 #:--accent "blue")))
              "js-component")
+(render-root (component js-identity-parent (props)) "js-identity")
 (render-root (component identity-parent (props)) "identity")
 (render-root (component children-demo (props)) "children")
 (render-root (component unkeyed-demo (props)) "unkeyed")

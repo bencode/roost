@@ -12,8 +12,9 @@ import { boot } from '../js/roost-loader.js'
 import { compileScheme, hootPaths } from '../tooling/vite-plugin-roost.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const roots = ['identity', 'children', 'unkeyed', 'dom', 'counter', 'bad', 'js-component']
+const roots = ['identity', 'children', 'unkeyed', 'dom', 'counter', 'bad', 'js-component', 'js-identity']
 const errors = []
+const probeCallbacks = []
 
 const log = () => globalThis.roostLog.map(entry => entry.join(' '))
 const byId = id => document.getElementById(id)
@@ -59,7 +60,13 @@ beforeAll(async () => {
       modules: {
         react: React,
         'react-dom/client': ReactDOMClient,
-        'test-components': { Box: props => React.createElement('span', props) },
+        'test-components': {
+          Box: props => React.createElement('span', props),
+          Probe: props => {
+            probeCallbacks.push(props.callback)
+            return React.createElement('output', null, props.count)
+          },
+        },
       },
     }),
   )
@@ -121,6 +128,14 @@ describe('JavaScript interop', () => {
 })
 
 describe('JavaScript components', () => {
+  it('receive the same function for the same procedure across renders', async () => {
+    await click('js-rerender')
+    await click('js-rerender')
+    expect(byId('js-identity').textContent).toContain('2')
+    expect(probeCallbacks.length).toBeGreaterThanOrEqual(3)
+    expect(new Set(probeCallbacks).size).toBe(1)
+  })
+
   it('receive DOM-style prop names', () => {
     const box = byId('box')
     expect(box.className).toBe('selected')
@@ -149,5 +164,10 @@ describe('errors', () => {
       thrown = error
     }
     expect(thrown?.message).toBe('node->react: unsupported child not-a-child')
+  })
+
+  it('keeps rendering other roots after a render error', async () => {
+    await click('counter-add')
+    expect(byId('counter-output').textContent).toBe('items: 3')
   })
 })
