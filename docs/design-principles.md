@@ -153,6 +153,19 @@ A Scheme procedure called from JavaScript receives the call's arguments without 
 
 Stylesheets from npm packages are imported for their side effect with `(js/module "todomvc-app-css/index.css")`; the Vite plugin bundles them. Without the plugin, link the stylesheet from the page instead.
 
+## Performance
+
+Each render crosses between Scheme (Wasm) and JavaScript, so Roost keeps crossings few and cheap:
+
+- **Direct builder.** Scheme walks the UI tree and drives the React builder through direct calls with fixed parameter types; the builder assembles elements with `createElement` in JavaScript.
+- **Names once.** Property names such as `#:on-click` → `onClick` are computed once per keyword and reused.
+- **Literal strings once.** Strings in Hoot must be converted character by character for JavaScript. Literal (immutable) strings, such as tag names and constant class names, are handed over as objects and converted only the first time; JavaScript keeps their text in a `WeakMap`. Strings built at run time are converted on every render, so a mutated string always shows its current content.
+- **Numbers as numbers.** Integer keys are passed as numbers; React turns them into the same strings itself.
+
+Measured on a production build in Chrome, with a 1,000-row table in which every row is a component and every update re-renders all rows: React takes about 2 ms per update, Roost about 22 ms, or roughly 20 µs per component render. Interfaces with hundreds of rows update well within a frame. For very large lists that update often, the usual React advice applies: limit how much of the tree re-renders.
+
+Most of the remaining cost belongs to the platform rather than to Roost's design: converting strings built at run time, Hoot's marshaling when React calls a Scheme component, and general Scheme operations in Wasm.
+
 ## Module imports and names
 
 Roost's modules are R7RS libraries, imported with `import` as Hoot programs do. The DOM module exports ordinary tag names. Documentation imports it with the prefix `h/`; applications can instead import short names with `only`. Tags are not injected into application scope automatically, and Roost does not add its own import syntax. [R7RS libraries](https://small.r7rs.org/attachment/r7rs.pdf).
