@@ -6,11 +6,35 @@ Status: design phase. This document records agreed directions; the library and e
 
 Roost aims to let you write application components, event handlers, and business logic in Scheme, compiled to Wasm with Guile Hoot. The library's JavaScript bridge connects to React, so application authors do not need to write a JavaScript wrapper for each component.
 
-UI is expressed as Hiccup. The construction syntax follows Scheme's expressions, lexical bindings, and function composition, using macros where needed. Quasiquote and unquote are not the default way to write UI. The internal node representation and component argument model remain undecided.
+UI is expressed as Hiccup. The construction syntax follows Scheme's expressions, lexical bindings, and function composition, using macros where needed. Quasiquote and unquote are not the default way to write UI. The internal node representation remains undecided.
 
 Props use a distinct type, constructed with `(props #:class "card")`. Types distinguish props from nodes and collections of children. The mapping from property names to React props remains undecided.
 
-Component nodes are constructed explicitly with `(component render ...)`, which stores a reference to the render procedure without calling it. Ordinary Scheme function calls keep their usual behavior. The bridge creates React elements from these nodes, leaving React to decide when to execute each component. The component argument model remains undecided. [React component calls](https://react.dev/reference/rules/react-calls-components-and-hooks).
+Component nodes are constructed explicitly with `(component render ...)`, which stores a reference to the render procedure without calling it. Ordinary Scheme function calls keep their usual behavior. The bridge creates React elements from these nodes, leaving React to decide when to execute each component. Each component is an ordinary Scheme procedure that receives one props value; no component-definition macro is required. [React component calls](https://react.dev/reference/rules/react-calls-components-and-hooks).
+
+## Component props
+
+Components receive one value of the distinct props type. Ordinary helper procedures keep their own argument lists.
+
+```scheme
+(define (user-card attributes)
+  (let ((name  (props-ref attributes #:name))
+        (email (props-ref attributes #:email #f)))
+    (h/section
+      (props #:class "user-card")
+      (h/h2 name)
+      (and email (h/p email)))))
+
+(component user-card (props #:name "Ada"))
+```
+
+The example illustrates agreed API semantics, not an implemented library. Import `props-ref` from `(roost props)` and `component` from `(roost hiccup)` when using these proposed modules.
+
+- `(props-ref attributes key)` returns the property's value, or raises an error if the key is missing.
+- `(props-ref attributes key default)` returns the default only when the key is missing.
+- Existing values, including `#f`, are returned unchanged. Object and procedure references are preserved.
+
+The representation and passing rules for `children` are still being designed.
 
 ## Native React Hooks
 
