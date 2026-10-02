@@ -26,6 +26,11 @@ export const kernel = modules => ({
     array.push(value)
   },
   apply: (fn, self, args) => guarded(() => fn.apply(self, args)),
+  // Calls with exactly 0 to 3 arguments, avoiding an argument array.
+  call0: (fn, self) => guarded(() => fn.call(self)),
+  call1: (fn, self, a) => guarded(() => fn.call(self, a)),
+  call2: (fn, self, a, b) => guarded(() => fn.call(self, a, b)),
+  call3: (fn, self, a, b, c) => guarded(() => fn.call(self, a, b, c)),
   construct: (ctor, args) => guarded(() => new ctor(...args)),
   thrown: value => (value === THROWN ? 1 : 0),
   lastError: () => lastError,
@@ -43,11 +48,15 @@ export const kernel = modules => ({
       'length',
       { value: length },
     ),
-  typeOf: value => (value === null ? 'null' : typeof value),
+  // 0 undefined, 1 null, 2 boolean, 3 number, 4 string, 5 function, 6 object, 7 other.
+  typeCode: value =>
+    value === null ? 1 : ({ undefined: 0, boolean: 2, number: 3, string: 4, function: 5, object: 6 })[typeof value] ?? 7,
+  weakMap: () => new WeakMap(),
+  weakGet: (map, key) => (map.has(key) ? map.get(key) : null),
+  weakSet: (map, key, value) => guarded(() => void map.set(key, value)),
   toNumber: value => value,
   toString: value => value,
   toBoolean: value => (value ? 1 : 0),
-  opaque: value => value,
   string: value => value,
   number: value => value,
   boolean: value => value !== 0,

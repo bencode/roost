@@ -146,6 +146,8 @@ JavaScript components, such as React Router's `Link`, can be used directly as no
 
 A Scheme procedure called from JavaScript receives the call's arguments without trailing `undefined` values, since JavaScript often passes more arguments than a callback uses. Some libraries, such as Ramda's `curry`, read a function's `length`; declare it with `(js/function procedure length)`, which also passes at most that many arguments.
 
+`js/make-weak-table`, `js/weak-table-ref`, and `js/weak-table-set!` associate values with Scheme or JavaScript objects by identity, backed by a JavaScript `WeakMap`, so entries do not keep their keys alive.
+
 Stylesheets from npm packages are imported for their side effect with `(js/module "todomvc-app-css/index.css")`; the Vite plugin bundles them. Without the plugin, link the stylesheet from the page instead.
 
 ## Module imports and names

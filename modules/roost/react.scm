@@ -22,16 +22,16 @@
     ;; One React type per render procedure, keyed by the procedure itself in a WeakMap
     ;; so render procedures created on the fly can be collected. React calls components
     ;; as (props, undefined); length 1 passes only props.
-    (define component-types (delay (js/new (js/ref js/global "WeakMap"))))
+    (define component-types (delay (js/make-weak-table)))
 
     (define (render->react-type render)
       (let ((types (force component-types)))
-        (or (js/method types "get" render)
+        (or (js/weak-table-ref types render #f)
             (let ((type (js/function
                          (lambda (js-props)
                            (node->react (render (js/ref js-props "roostProps"))))
                          1)))
-              (js/method types "set" render type)
+              (js/weak-table-set! types render type)
               type))))
 
     (define (split-contents node)

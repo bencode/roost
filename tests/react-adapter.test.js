@@ -113,6 +113,13 @@ describe('hooks', () => {
   })
 })
 
+describe('JavaScript interop', () => {
+  it('keeps weak table values and reports types', () => {
+    expect(log()).toContain('weak-table true 42 missing')
+    expect(log()).toContain('typeof undefined null number string function object scheme')
+  })
+})
+
 describe('JavaScript components', () => {
   it('receive DOM-style prop names', () => {
     const box = byId('box')

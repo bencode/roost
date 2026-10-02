@@ -2,6 +2,7 @@
   (export global module (rename js-ref ref) (rename js-set! set!) method new function function?
           array object from-scheme to-scheme typeof value?
           (rename js-error? error?) (rename js-error-value error-value)
+          make-weak-table weak-table-ref weak-table-set!
           property-name set-node-converter!)
   (import (scheme base)
           (scheme char)
@@ -22,15 +23,21 @@
     (define-foreign %array "roost" "array" -> (ref extern))
     (define-foreign %push! "roost" "push" (ref extern) (ref null extern) -> none)
     (define-foreign %apply "roost" "apply" (ref null extern) (ref null extern) (ref extern) -> (ref null extern))
+    (define-foreign %call0 "roost" "call0" (ref null extern) (ref null extern) -> (ref null extern))
+    (define-foreign %call1 "roost" "call1" (ref null extern) (ref null extern) (ref null extern) -> (ref null extern))
+    (define-foreign %call2 "roost" "call2" (ref null extern) (ref null extern) (ref null extern) (ref null extern) -> (ref null extern))
+    (define-foreign %call3 "roost" "call3" (ref null extern) (ref null extern) (ref null extern) (ref null extern) (ref null extern) -> (ref null extern))
     (define-foreign %construct "roost" "construct" (ref null extern) (ref extern) -> (ref null extern))
     (define-foreign %thrown "roost" "thrown" (ref null extern) -> i32)
     (define-foreign %last-error "roost" "lastError" -> (ref null extern))
     (define-foreign %fn "roost" "fn" (ref extern) i32 -> (ref extern))
-    (define-foreign %type-of "roost" "typeOf" (ref null extern) -> (ref string))
+    (define-foreign %type-code "roost" "typeCode" (ref null extern) -> i32)
+    (define-foreign %weak-map "roost" "weakMap" -> (ref extern))
+    (define-foreign %weak-get "roost" "weakGet" (ref extern) (ref null extern) -> (ref null extern))
+    (define-foreign %weak-set! "roost" "weakSet" (ref extern) (ref null extern) (ref null extern) -> (ref null extern))
     (define-foreign %to-number "roost" "toNumber" (ref null extern) -> f64)
     (define-foreign %to-string "roost" "toString" (ref null extern) -> (ref string))
     (define-foreign %to-boolean "roost" "toBoolean" (ref null extern) -> i32)
-    (define-foreign %opaque "roost" "opaque" (ref eq) -> (ref extern))
     (define-foreign %string "roost" "string" (ref string) -> (ref extern))
     (define-foreign %number "roost" "number" f64 -> (ref extern))
     (define-foreign %boolean "roost" "boolean" i32 -> (ref extern))
@@ -50,8 +57,26 @@
           (ref.cast $heap-object (any.convert_extern (local.get $x))))
        x))
 
-    (define (undefined? x) (string=? "undefined" (%type-of x)))
-    (define (nullish? x) (member (%type-of x) '("undefined" "null")))
+    ;; A Scheme value handed to JavaScript as is; converted inside Wasm, no call out.
+    (define (%opaque x)
+      (%inline-wasm
+       '(func (param $x (ref eq)) (result (ref eq))
+          (struct.new $extern-ref (i32.const 0) (extern.convert_any (local.get $x))))
+       x))
+
+    ;; Type codes returned by the kernel's typeCode.
+    (define type-undefined 0)
+    (define type-null 1)
+    (define type-boolean 2)
+    (define type-number 3)
+    (define type-string 4)
+    (define type-function 5)
+    (define type-object 6)
+    (define type-names
+      #("undefined" "null" "boolean" "number" "string" "function" "object" "other"))
+
+    (define (undefined? x) (= type-undefined (%type-code x)))
+    (define (nullish? x) (<= (%type-code x) type-null))
 
     ;; JavaScript exceptions become Scheme conditions so guard and dynamic-wind work.
     (define-record-type <js-error>
@@ -90,6 +115,9 @@
     (define-record-type <global> (make-global) global?)
     (define global (make-global))
     (define global-object (delay (%module "global")))
+    (define js-true (delay (%boolean 1)))
+    (define js-false (delay (%boolean 0)))
+    (define js-undefined (delay (%undefined)))
     (define max-safe-integer 9007199254740991)
     (define unspecified (if #f #f))
 
@@ -98,21 +126,17 @@
         (for-each (lambda (v) (%push! array (convert v))) values)
         array))
 
-    (define (method-call object name args)
-      (checked (%apply (%get object name) object (args->array args (lambda (x) x)))))
-
     ;; Function identity lives in JavaScript WeakMaps keyed by the opaque procedure or
     ;; function, so procedures created during render can be collected.
-    (define (make-weak-map)
-      (checked (%construct (%get (force global-object) "WeakMap") (%array))))
     (define (weak-ref map key)
-      (let ((found (method-call map "get" (list key))))
-        (and (not (undefined? found)) found)))
-    (define (weak-set! map key value) (method-call map "set" (list key value)))
+      (let ((found (%weak-get map key)))
+        (and (not (external-null? found)) found)))
+    (define (weak-set! map key value)
+      (checked (%weak-set! map key value)))
 
-    (define js-origins (delay (make-weak-map)))   ; wrapper procedure -> original JS function
-    (define js-wrappers (delay (make-weak-map)))  ; JS function -> canonical procedure
-    (define js-functions (delay (make-weak-map))) ; procedure -> its one JS function
+    (define js-origins (delay (%weak-map)))   ; wrapper procedure -> original JS function
+    (define js-wrappers (delay (%weak-map)))  ; JS function -> canonical procedure
+    (define js-functions (delay (%weak-map))) ; procedure -> its one JS function
 
     ;; Arguments a callback receives: the first `length` when declared, otherwise all
     ;; of them without trailing undefined (React calls components as (props, undefined)).
@@ -154,7 +178,7 @@
             (lambda (frame)
               (guard (condition
                       (#t (%set! frame "error" (condition->js condition))
-                          (%set! frame "failed" (%boolean 1))))
+                          (%set! frame "failed" (force js-true))))
                 (call-with-values
                     (lambda () (apply proc (frame-arguments (%get frame "args") length)))
                   (lambda results
@@ -185,7 +209,7 @@
       (let ((found (weak-ref (force js-wrappers) fn)))
         (if found
             (unwrap found)
-            (let ((proc (lambda args (call fn (%undefined) args))))
+            (let ((proc (lambda args (call fn (force js-undefined) args))))
               (weak-set! (force js-wrappers) fn (%opaque proc))
               (weak-set! (force js-origins) (%opaque proc) fn)
               proc))))
@@ -202,28 +226,40 @@
             (%number v)
             (error "js: integer outside the JavaScript safe range" v)))
        ((real? v) (%number v))
-       ((boolean? v) (%boolean (if v 1 0)))
-       ((eq? v unspecified) (%undefined))
+       ((boolean? v) (force (if v js-true js-false)))
+       ((eq? v unspecified) (force js-undefined))
        ((or (null? v) (char? v) (eof-object? v)) (%opaque (box-immediate v)))
        (else (%opaque v))))
 
     (define (->scheme x)
-      (let ((type (%type-of x)))
+      (let ((type (%type-code x)))
         (cond
-         ((string=? type "number")
+         ((= type type-object)
+          (if (scheme-value? x)
+              (let ((v (unwrap x)))
+                (if (boxed? v) (boxed-value v) v))
+              x))
+         ((= type type-string) (%to-string x))
+         ((= type type-number)
           (let ((n (%to-number x)))
             (if (and (integer? n) (<= (abs n) max-safe-integer)) (exact n) n)))
-         ((string=? type "string") (%to-string x))
-         ((string=? type "boolean") (= 1 (%to-boolean x)))
-         ((or (string=? type "undefined") (string=? type "null")) #f)
-         ((string=? type "function") (js-function->procedure x))
-         ((scheme-value? x)
-          (let ((v (unwrap x)))
-            (if (boxed? v) (boxed-value v) v)))
+         ((= type type-boolean) (= 1 (%to-boolean x)))
+         ((<= type type-null) #f)
+         ((= type type-function) (js-function->procedure x))
          (else x))))
 
+    ;; Calls with up to three arguments avoid building an argument array.
+    (define (invoke fn self args)
+      (let ((n (length args)))
+        (cond
+         ((= n 0) (%call0 fn self))
+         ((= n 1) (%call1 fn self (car args)))
+         ((= n 2) (%call2 fn self (car args) (cadr args)))
+         ((= n 3) (%call3 fn self (car args) (cadr args) (car (cddr args))))
+         (else (%apply fn self (args->array args (lambda (x) x)))))))
+
     (define (call fn self args)
-      (->scheme (checked (%apply fn self (args->array args ->js)))))
+      (->scheme (checked (invoke fn self (map ->js args)))))
 
     (define (key->string key)
       (if (string? key) key (number->string key)))
@@ -253,7 +289,7 @@
     (define (method object name . args)
       (let* ((target (->js object))
              (fn (get-checked target name)))
-        (unless (string=? "function" (%type-of fn))
+        (unless (= type-function (%type-code fn))
           (error "js/method: not a function" name))
         (call fn target args)))
 
@@ -283,10 +319,10 @@
                        (let loop ((value (->js object)) (keys keys))
                          (let ((next (get-checked value (car keys))))
                            (if (null? (cdr keys)) next (loop next (cdr keys))))))))
-        (if (and (not (member (%type-of value) '("number" "string" "boolean" "undefined" "null" "function")))
-                 (scheme-value? value))
-            "scheme"
-            (%type-of value))))
+        (let ((type (%type-code value)))
+          (if (and (= type type-object) (scheme-value? value))
+              "scheme"
+              (vector-ref type-names type)))))
 
     (define (value? v) (or (external? v) (global? v)))
 
@@ -322,11 +358,53 @@
 
     (define (to-scheme x)
       (let ((value (if (external? x) x (->js x))))
-        (if (and (string=? "object" (%type-of value))
+        (if (and (= type-object (%type-code value))
                  (not (scheme-value? value))
-                 (call (%get (%get (force global-object) "Array") "isArray") (%undefined) (list value)))
+                 (call (%get (%get (force global-object) "Array") "isArray") (force js-undefined) (list value)))
             (let loop ((i (- (exact (%to-number (%get value "length"))) 1)) (acc '()))
               (if (< i 0)
                   acc
                   (loop (- i 1) (cons (to-scheme (%get value (number->string i))) acc))))
-            (->scheme value))))))
+            (->scheme value))))
+
+    ;; Tables keyed by object identity (Scheme heap values or JavaScript objects), backed
+    ;; by a JavaScript WeakMap: entries do not keep their keys alive.
+    (define-record-type <weak-table>
+      (wrap-weak-table map)
+      weak-table?
+      (map weak-table-map))
+
+    (define (make-weak-table) (wrap-weak-table (%weak-map)))
+
+    (define (i31? x)
+      (%inline-wasm
+       '(func (param $x (ref eq)) (result (ref eq))
+          (if (ref eq) (ref.test i31 (local.get $x))
+              (then (ref.i31 (i32.const 17)))
+              (else (ref.i31 (i32.const 1)))))
+       x))
+
+    (define (table-key key)
+      (cond
+       ((external? key) key)
+       ((global? key) (force global-object))
+       ((i31? key) (error "js/weak-table: key must be an object" key))
+       (else (%opaque key))))
+
+    ;; Values are kept as they are; immediates travel in a box.
+    (define (weak-table-set! table key value)
+      (checked (%weak-set! (weak-table-map table) (table-key key)
+                           (cond
+                            ((external? value) value)
+                            ((i31? value) (%opaque (make-boxed value)))
+                            (else (%opaque value)))))
+      unspecified)
+
+    (define (weak-table-ref table key default)
+      (let ((found (%weak-get (weak-table-map table) (table-key key))))
+        (cond
+         ((external-null? found) default)
+         ((scheme-value? found)
+          (let ((v (unwrap found)))
+            (if (boxed? v) (boxed-value v) v)))
+         (else found))))))

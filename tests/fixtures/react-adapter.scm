@@ -21,6 +21,21 @@
       (js-error-name
        (lambda () (js/set! (js/method (js/ref js/global "Object") "freeze" (js/object "a" 1)) "a" 2))))
 
+;; Weak tables keep values as they are; js/typeof reports JavaScript types.
+(define table (js/make-weak-table))
+(define key (list 'key))
+(define value (vector 1 2))
+(js/weak-table-set! table key value)
+(js/weak-table-set! table value 42)
+(log! "weak-table"
+      (eq? value (js/weak-table-ref table key #f))
+      (js/weak-table-ref table value #f)
+      (js/weak-table-ref table (list 'other) "missing"))
+(log! "typeof"
+      (js/typeof js/global "roostUndefined")
+      (js/typeof (js/method (js/ref js/global "JSON") "parse" "{\"a\":null}") "a")
+      (js/typeof 1) (js/typeof "s") (js/typeof (lambda () 1)) (js/typeof js/global) (js/typeof (list 1)))
+
 ;; Identity: re-rendering the parent keeps the same child component mounted.
 (define (child attributes)
   ;; An effect may return no values; (values) is valid Scheme.
