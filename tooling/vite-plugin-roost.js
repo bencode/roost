@@ -127,7 +127,8 @@ export default function roost({ loadPaths = [path.join(repoRoot, 'modules')] } =
       const serving = config.command === 'serve'
       const outDir = path.join(config.cacheDir, 'roost')
       const wasmFile = path.join(outDir, `${path.relative(config.root, entry).replaceAll(path.sep, '_')}.wasm`)
-      await compileScheme({ entry, output: wasmFile, loadPaths, optimize: serving ? 1 : undefined })
+      // The entry's directory holds the application's own libraries.
+      await compileScheme({ entry, output: wasmFile, loadPaths: [path.dirname(entry), ...loadPaths], optimize: serving ? 1 : undefined })
 
       const files = [...(await schemeFiles(path.dirname(entry))), ...(await Promise.all(loadPaths.map(schemeFiles))).flat()]
       files.forEach(file => this.addWatchFile(file))

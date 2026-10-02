@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Checkout · Roost</title>
+    <style>
+      :root { --ink: #1f2933; --muted: #6b7680; --line: #e3e7eb; --accent: #2563eb; --error: #c62828; --ok: #2e7d32; --bg: #f6f7f9; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 15px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; color: var(--ink); background: var(--bg); }
+      main { max-width: 1280px; margin: 0 auto; padding: 16px; }
+      header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+      h1 { font-size: 22px; margin: 0; } h2 { font-size: 18px; margin: 0 0 12px; } h3 { font-size: 14px; margin: 6px 0 2px; }
+      .badge { background: var(--ink); color: #fff; border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+      .banner { background: #fdecea; color: var(--error); border: 1px solid #f5c2c0; padding: 10px 12px; border-radius: 8px; }
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+      .side { display: grid; gap: 16px; position: sticky; top: 16px; }
+      .catalog, .cart, .checkout { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+      .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+      .toolbar input[type=search] { flex: 1; min-width: 180px; }
+      .count { color: var(--muted); font-size: 13px; }
+      input, select, button { font: inherit; }
+      input, select { border: 1px solid #cfd6dd; border-radius: 8px; padding: 7px 9px; background: #fff; }
+      button { border: 1px solid #cfd6dd; background: #fff; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+      button:disabled { opacity: .6; cursor: progress; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+      .product { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+      .product.in-cart { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+      .thumb { height: 64px; border-radius: 8px; background: linear-gradient(135deg, #dbe4ff, #f3e8ff); display: grid; place-items: center; font-weight: 700; color: #5b6b9a; }
+      .category { color: var(--muted); font-size: 12px; margin: 0; } .price { font-weight: 600; margin: 4px 0; }
+      .add { margin-top: auto; } .stepper { display: flex; align-items: center; gap: 8px; margin-top: auto; }
+      .stepper span { min-width: 20px; text-align: center; }
+      .cart ul { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 8px; }
+      .cart li { display: grid; grid-template-columns: 1fr auto 72px 28px; gap: 6px; align-items: center; font-size: 13px; }
+      .line-total { text-align: right; } .remove { padding: 2px 6px; }
+      .empty { color: var(--muted); } .ok { color: var(--ok); } .error { color: var(--error); }
+      fieldset { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 12px; padding: 10px 12px; display: grid; gap: 8px; }
+      legend { font-weight: 600; padding: 0 4px; } .radio, .check { display: flex; gap: 8px; align-items: center; }
+      .coupon { display: flex; gap: 8px; margin-bottom: 8px; } .coupon input { flex: 1; }
+      dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 8px 0 0; } dd { margin: 0; text-align: right; }
+      .total { font-weight: 700; font-size: 16px; }
+      .field { display: grid; gap: 4px; font-size: 13px; } .field input, .field select { width: 100%; }
+      .field.invalid input { border-color: var(--error); } .field small { color: var(--error); }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .summary { border: 1px solid #f5c2c0; background: #fdecea; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; }
+      .summary ul { margin: 4px 0 0; padding-left: 18px; }
+      .primary { width: 100%; background: var(--accent); color: #fff; border-color: var(--accent); padding: 10px; font-weight: 600; }
+      .done { text-align: center; padding-top: 80px; } .done button { margin-top: 16px; }
+      @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .side { position: static; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.scm"></script>
+  </body>
+</html>

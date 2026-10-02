@@ -48,6 +48,7 @@ The first visit to an example compiles its Scheme to WebAssembly, which takes a 
 | [`examples/counter`](examples/counter/main.scm) | `use-state`, `use-effect`, DOM events |
 | [`examples/router-query`](examples/router-query/main.scm) | React Router and TanStack Query used from Scheme |
 | [`examples/todomvc`](examples/todomvc/main.scm) | The complete [TodoMVC](https://todomvc.com) application: editing, filtering with routes, persistence |
+| [`examples/checkout`](examples/checkout/main.scm) | A store page split into libraries (`store/` for data and logic, `views/` for components): a 200-product catalog, cart, coupon, validated checkout form, simulated server calls |
 
 Each example is an `index.html` and a `main.scm`. The page loads the Scheme entry directly:
 
@@ -58,15 +59,17 @@ Each example is an `index.html` and a `main.scm`. The page loads the Scheme entr
 
 ## How the Vite plugin helps
 
-[`tooling/vite-plugin-roost.js`](tooling/vite-plugin-roost.js) compiles `.scm` entries with `guild compile-wasm`, finds the npm packages named in `(js/module "…")` calls and imports them, and serves Hoot's runtime files. It only automates steps you can do by hand.
+[`tooling/vite-plugin-roost.js`](tooling/vite-plugin-roost.js) compiles `.scm` entries with `guild compile-wasm` (the entry's directory is on the load path, so an application's own libraries live next to it), finds the npm packages named in `(js/module "…")` calls and imports them, and serves Hoot's runtime files. It only automates steps you can do by hand.
 
 ## Using Roost without the plugin
 
 Compile the application and copy Hoot's runtime files next to it:
 
 ```sh
-guild compile-wasm -L <roost>/modules --bundle -o public/app.wasm main.scm
+guild compile-wasm -L <roost>/modules -L . --bundle -o public/app.wasm main.scm
 ```
+
+`-L .` lets `main.scm` import the application's own libraries, such as `(store cart)` from `store/cart.scm`.
 
 Load Hoot's `reflect.js` as a classic script, then start the application with the loader, registering every package the Scheme code passes to `js/module`:
 
