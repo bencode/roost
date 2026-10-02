@@ -55,6 +55,8 @@
 (test-group "imports"
   (test-eq "prefixed and selected names are the same procedure" h/section section)
   (test-equal "both build the same node" (vector->list (h/p "x")) (vector->list (p "x")))
+  (test-equal "the full HTML element set, including map"
+              '("input" "map") (list (vector-ref (h/input) 0) (vector-ref (h/map) 0)))
   (let ((h/h2 (lambda (title) (string-append "local:" title))))
     (test-equal "local bindings shadow imports" "local:Roost" (h/h2 "Roost"))))
 
