@@ -2,7 +2,7 @@
 (use-modules (srfi srfi-64)
              ((roost dom) #:prefix h/)
              ((roost dom) #:select (section p))
-             ((roost props) #:select (props props? props-entries props-ref))
+             ((roost props) #:select (props props? props-entries props-ref let-props))
              ((roost hiccup) #:select (make-node component)))
 
 (test-begin "ui-construction")
@@ -17,6 +17,13 @@
     (test-error "missing key without default" #t (props-ref attributes #:phone)))
   (let ((handler (lambda (event) event)))
     (test-eq "keeps value references" handler (props-ref (props #:on-click handler) #:on-click)))
+  (let ((evaluated 0))
+    (let-props (begin (set! evaluated (+ evaluated 1)) (props #:name "Ada" #:email #f))
+        (name email (phone "none"))
+      (test-equal "let-props binds properties by name" '("Ada" #f "none") (list name email phone))
+      (test-equal "let-props evaluates the props expression once" 1 evaluated)))
+  (test-error "let-props without default for a missing key" #t
+              (let-props (props) (name) name))
   (test-error "odd argument count" #t (props #:name))
   (test-error "non-keyword key" #t (props 'name "Ada"))
   (test-error "duplicate key" #t (props #:name "Ada" #:name "Bob")))

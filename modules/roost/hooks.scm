@@ -1,5 +1,5 @@
 (define-library (roost hooks)
-  (export use-state use-effect)
+  (export use-state use-effect use-ref)
   (import (scheme base)
           (scheme case-lambda)
           (scheme lazy)
@@ -10,6 +10,7 @@
     (define react (delay (js/module "react")))
     (define (react-use-state . args) (apply (js/ref (force react) "useState") args))
     (define (react-use-effect . args) (apply (js/ref (force react) "useEffect") args))
+    (define (react-use-ref . args) (apply (js/ref (force react) "useRef") args))
 
     ;; A procedure as init is a lazy initializer, and the setter treats a procedure as
     ;; an updater, exactly as in React.
@@ -30,4 +31,9 @@
     (define use-effect
       (case-lambda
         ((thunk) (react-use-effect (effect thunk)))
-        ((thunk deps) (react-use-effect (effect thunk) (apply js/array deps)))))))
+        ((thunk deps) (react-use-effect (effect thunk) (apply js/array deps)))))
+
+    ;; The ref object itself: read and write its current with js/ref and js/set!, or
+    ;; pass it as #:ref to a DOM node.
+    (define (use-ref initial)
+      (react-use-ref initial))))
