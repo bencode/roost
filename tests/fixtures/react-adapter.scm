@@ -87,7 +87,8 @@
 ;; A JavaScript component receives DOM-style prop names.
 (define Box (js/ref (js/module "test-components") "Box"))
 
-(render-root (component Box (props #:id "box" #:class "selected" #:aria-label "Box" #:data-kind "demo"))
+(render-root (component Box (props #:id "box" #:class "selected" #:aria-label "Box" #:data-kind "demo"
+                                   #:style (props #:margin-top 8 #:--accent "blue")))
              "js-component")
 (render-root (component identity-parent (props)) "identity")
 (render-root (component children-demo (props)) "children")

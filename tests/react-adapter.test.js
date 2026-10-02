@@ -119,6 +119,8 @@ describe('JavaScript components', () => {
     expect(box.className).toBe('selected')
     expect(box.getAttribute('aria-label')).toBe('Box')
     expect(box.getAttribute('data-kind')).toBe('demo')
+    expect(box.style.marginTop).toBe('8px')
+    expect(box.style.getPropertyValue('--accent')).toBe('blue')
     expect(errors.filter(message => message.includes('Invalid DOM property'))).toEqual([])
   })
 })

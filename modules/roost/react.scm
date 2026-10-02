@@ -131,7 +131,12 @@
     ;; following React's convention (className, htmlFor, aria-*, data-*).
     (define (js-component-config attributes)
       (apply js/object
-             (append-map (lambda (e) (list (dom-name (car e)) (js/from-scheme (cdr e))))
+             (append-map (lambda (e)
+                           (let ((key (car e)) (value (cdr e)))
+                             (list (dom-name key)
+                                   (if (and (eq? key #:style) (props? value))
+                                       (style-object value)
+                                       (js/from-scheme value)))))
                          (entries attributes))))
 
     (define (node-element node)
