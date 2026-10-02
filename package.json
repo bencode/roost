@@ -1,0 +1,24 @@
+{
+  "name": "roost",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scheme-first React bindings powered by Guile Hoot",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "pnpm test:scheme && pnpm test:js",
+    "test:scheme": "guile --no-auto-compile -L modules tests/ui-construction.scm",
+    "test:js": "vitest run"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "5.104.0",
+    "jsdom": "27.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router-dom": "7.18.4",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
+  },
+  "packageManager": "pnpm@10.14.0"
+}

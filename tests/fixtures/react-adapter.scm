@@ -1,0 +1,81 @@
+;; Scenarios for tests/react-adapter.test.js. Observations go to globalThis.roostLog.
+(import (scheme base)
+        (prefix (roost dom) h/)
+        (only (roost props) props props-ref)
+        (only (roost hiccup) component)
+        (only (roost react) render-root)
+        (only (roost hooks) use-state use-effect)
+        (prefix (roost js) js/))
+
+(define (log! . items)
+  (js/method (js/ref js/global "roostLog") "push" (apply js/array items)))
+
+;; Identity: re-rendering the parent keeps the same child component mounted.
+(define (child attributes)
+  ;; An effect may return no values; (values) is valid Scheme.
+  (use-effect (lambda ()
+                (log! "child-mounted")
+                (js/set! js/global "roostChildEffect" #t)
+                (values))
+              '())
+  (h/p (props-ref attributes #:label)))
+
+(define (identity-parent attributes)
+  (let-values (((n set-n!) (use-state 0)))
+    (h/div
+     (h/button (props #:id "identity-rerender" #:on-click (lambda (event) (set-n! (+ n 1)))) "rerender")
+     (component child (props #:label (string-append "render " (number->string n)))))))
+
+;; Children: static children forwarded by a component, and dynamic lists with/without keys.
+(define (card attributes)
+  (h/section (props #:class "card") (props-ref attributes #:children #f)))
+
+(define (children-demo attributes)
+  (h/div
+   (component card (props) (h/h2 "Title") (h/p "Body"))
+   (h/ul (props #:id "keyed") (map (lambda (x) (h/li (props #:key x) x)) '("a" "b")))))
+
+(define (unkeyed-demo attributes)
+  (h/ul (map h/li '("x" "y"))))
+
+;; DOM properties and events.
+(define (dom-demo attributes)
+  (let-values (((clicks set-clicks!) (use-state 0)))
+    (h/button
+     (props #:id "dom-button"
+            #:class "primary"
+            #:aria-label "Increment"
+            #:data-count clicks
+            #:style (props #:margin-top 8 #:--accent "blue")
+            #:on-click (lambda (event) (set-clicks! (lambda (c) (+ c 1)))))
+     (number->string clicks))))
+
+;; Hooks: setter identity, updater, lazy initializer, effect deps and cleanup.
+(define last-setter #f)
+(define (counter attributes)
+  (let-values (((items set-items!) (use-state '()))
+               ((label set-label!) (use-state (lambda () "items"))))
+    (when last-setter (log! "setter-stable" (eq? last-setter set-items!)))
+    (set! last-setter set-items!)
+    (use-effect (lambda ()
+                  (log! "effect" (length items))
+                  (lambda () (log! "cleanup")))
+                (list set-items! label))
+    (h/div
+     (h/button (props #:id "counter-add" #:on-click (lambda (event) (set-items! (lambda (l) (cons (vector 'item) l))))) "add")
+     (h/button (props #:id "counter-same" #:on-click (lambda (event) (set-label! "items"))) "same")
+     (h/output (props #:id "counter-output") (string-append label ": " (number->string (length items)))))))
+
+;; Unsupported child, rendered only after a click.
+(define (bad-demo attributes)
+  (let-values (((bad? set-bad!) (use-state #f)))
+    (h/div
+     (h/button (props #:id "bad-trigger" #:on-click (lambda (event) (set-bad! #t))) "break")
+     (if bad? (h/p 'not-a-child) (h/p "ok")))))
+
+(render-root (component identity-parent (props)) "identity")
+(render-root (component children-demo (props)) "children")
+(render-root (component unkeyed-demo (props)) "unkeyed")
+(render-root (component dom-demo (props)) "dom")
+(render-root (component counter (props)) "counter")
+(render-root (component bad-demo (props)) "bad")
