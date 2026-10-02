@@ -11,6 +11,10 @@
 ;; Stylesheet: imported only for its side effect.
 (js/module "todomvc-app-css/index.css")
 
+(define React (js/module "react"))
+(define router-dom (js/module "react-router-dom"))
+(define Link (js/ref router-dom "Link"))
+
 (define-record-type <todo>
   (make-todo id title completed?)
   todo?
@@ -24,8 +28,38 @@
 (define (with-completed todo completed?)
   (make-todo (todo-id todo) (todo-title todo) completed?))
 
-(define (remaining todos)
-  (length (filter (lambda (todo) (not (todo-completed? todo))) todos)))
+(define (active todos)
+  (filter (lambda (todo) (not (todo-completed? todo))) todos))
+
+(define (next-id todos)
+  (+ 1 (apply max 0 (map todo-id todos))))
+
+;; Filters by route: "/", "/active", "/completed".
+(define (visible todos route)
+  (cond
+   ((string=? route "/active") (active todos))
+   ((string=? route "/completed") (filter todo-completed? todos))
+   (else todos)))
+
+;; Persistence in localStorage as JSON.
+(define storage-key "todos-roost")
+(define storage (js/ref js/global "localStorage"))
+(define JSON (js/ref js/global "JSON"))
+
+(define (load-todos)
+  (let ((saved (js/method storage "getItem" storage-key)))
+    (if saved
+        (map (lambda (o) (make-todo (js/ref o "id") (js/ref o "title") (js/ref o "completed")))
+             (js/to-scheme (js/method JSON "parse" saved)))
+        '())))
+
+(define (save-todos todos)
+  (js/method storage "setItem" storage-key
+             (js/method JSON "stringify"
+                        (js/from-scheme
+                         (map (lambda (t)
+                                (props #:id (todo-id t) #:title (todo-title t) #:completed (todo-completed? t)))
+                              todos)))))
 
 ;; No string-trim in R7RS small; use JavaScript's.
 (define (trim s) (js/method s "trim"))
@@ -70,9 +104,8 @@
                                                ((string=? key "Escape") (on-cancel))))))))))))
 
 (define (app attributes)
-  (let-values (((todos set-todos!) (use-state '()))
+  (let-values (((todos set-todos!) (use-state load-todos))
                ((text set-text!) (use-state ""))
-               ((next-id set-next-id!) (use-state 1))
                ((editing set-editing!) (use-state #f)))
     (define (update-todo! todo f)
       (set-todos! (lambda (todos)
@@ -80,8 +113,7 @@
     (define (add!)
       (let ((title (trim text)))
         (unless (string=? title "")
-          (set-todos! (lambda (todos) (append todos (list (make-todo next-id title #f)))))
-          (set-next-id! (+ next-id 1))
+          (set-todos! (lambda (todos) (append todos (list (make-todo (next-id todos) title #f)))))
           (set-text! ""))))
     (define (toggle! todo)
       (update-todo! todo (lambda (t) (with-completed t (not (todo-completed? t))))))
@@ -96,9 +128,13 @@
     (define (toggle-all! completed?)
       (set-todos! (lambda (todos) (map (lambda (t) (with-completed t completed?)) todos))))
     (define (clear-completed!)
-      (set-todos! (lambda (todos) (filter (lambda (t) (not (todo-completed? t))) todos))))
-    (let* ((left (remaining todos))
+      (set-todos! active))
+    (use-effect (lambda () (save-todos todos)) (list todos))
+    (let* ((route (js/ref ((js/ref router-dom "useLocation")) "pathname"))
+           (left (length (active todos)))
            (done (- (length todos) left)))
+      (define (filter-link to name)
+        (h/li (component Link (props #:to to #:class (if (string=? route to) "selected" "")) name)))
       (h/section
        (props #:class "todoapp")
        (h/header
@@ -131,15 +167,23 @@
                                                  #:on-edit (lambda (todo) (set-editing! (todo-id todo)))
                                                  #:on-save save!
                                                  #:on-cancel (lambda () (set-editing! #f)))))
-                   todos))))
+                   (visible todos route)))))
        (and (pair? todos)
             (h/footer
              (props #:class "footer")
              (h/span (props #:class "todo-count")
                      (h/strong (number->string left))
                      (if (= left 1) " item left" " items left"))
+             (h/ul (props #:class "filters")
+                   (filter-link "/" "All")
+                   (filter-link "/active" "Active")
+                   (filter-link "/completed" "Completed"))
              (and (> done 0)
                   (h/button (props #:class "clear-completed" #:on-click (lambda (event) (clear-completed!)))
                             "Clear completed"))))))))
 
-(render-root (component app (props)) "root")
+(render-root
+ (component (js/ref React "StrictMode") (props)
+            (component (js/ref router-dom "HashRouter") (props)
+                       (component app (props))))
+ "root")

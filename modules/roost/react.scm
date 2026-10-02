@@ -127,10 +127,11 @@
                    (else (list (dom-name key) (dom-value value))))))
               (entries attributes))))
 
-    ;; Props of JavaScript components are plain JavaScript data.
+    ;; Props of JavaScript components are plain JavaScript data, named as on DOM nodes,
+    ;; following React's convention (className, htmlFor, aria-*, data-*).
     (define (js-component-config attributes)
       (apply js/object
-             (append-map (lambda (e) (list (js/property-name (car e)) (js/from-scheme (cdr e))))
+             (append-map (lambda (e) (list (dom-name (car e)) (js/from-scheme (cdr e))))
                          (entries attributes))))
 
     (define (node-element node)

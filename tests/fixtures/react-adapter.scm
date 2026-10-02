@@ -84,6 +84,11 @@
      (h/button (props #:id "bad-trigger" #:on-click (lambda (event) (set-bad! #t))) "break")
      (if bad? (h/p 'not-a-child) (h/p "ok")))))
 
+;; A JavaScript component receives DOM-style prop names.
+(define Box (js/ref (js/module "test-components") "Box"))
+
+(render-root (component Box (props #:id "box" #:class "selected" #:aria-label "Box" #:data-kind "demo"))
+             "js-component")
 (render-root (component identity-parent (props)) "identity")
 (render-root (component children-demo (props)) "children")
 (render-root (component unkeyed-demo (props)) "unkeyed")

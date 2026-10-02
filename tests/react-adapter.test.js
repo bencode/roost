@@ -12,7 +12,7 @@ import { boot } from '../js/roost-loader.js'
 import { compileScheme, hootPaths } from '../tooling/vite-plugin-roost.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const roots = ['identity', 'children', 'unkeyed', 'dom', 'counter', 'bad']
+const roots = ['identity', 'children', 'unkeyed', 'dom', 'counter', 'bad', 'js-component']
 const errors = []
 
 const log = () => globalThis.roostLog.map(entry => entry.join(' '))
@@ -56,7 +56,11 @@ beforeAll(async () => {
       Scheme,
       wasm: bytes,
       reflectWasmDir: hoot.reflectWasmDir,
-      modules: { react: React, 'react-dom/client': ReactDOMClient },
+      modules: {
+        react: React,
+        'react-dom/client': ReactDOMClient,
+        'test-components': { Box: props => React.createElement('span', props) },
+      },
     }),
   )
 }, 60_000)
@@ -106,6 +110,16 @@ describe('hooks', () => {
     expect(stable.every(entry => entry === 'setter-stable true')).toBe(true)
     expect(log().filter(entry => entry.startsWith('effect'))).toEqual(['effect 0'])
     expect(log()).not.toContain('cleanup')
+  })
+})
+
+describe('JavaScript components', () => {
+  it('receive DOM-style prop names', () => {
+    const box = byId('box')
+    expect(box.className).toBe('selected')
+    expect(box.getAttribute('aria-label')).toBe('Box')
+    expect(box.getAttribute('data-kind')).toBe('demo')
+    expect(errors.filter(message => message.includes('Invalid DOM property'))).toEqual([])
   })
 })
 
