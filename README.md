@@ -131,7 +131,7 @@ boot({
 | --- | --- |
 | `modules/roost/` | The Scheme library: `props`, `hiccup`, `dom`, `react`, `hooks`, `js`, and `dev` for live development |
 | `js/` | The JavaScript kernel, the React builder, and the loader |
-| `tooling/` | The Vite plugin, the live development REPL relay, and the `pnpm repl` client |
+| `tooling/` | The Vite plugin; live development (`live-dev.js`), its REPL relay, and the `pnpm repl` client |
 | `examples/` | Example applications |
 | `tests/` | Guile and Vitest tests |
 
