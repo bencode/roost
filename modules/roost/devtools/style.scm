@@ -12,12 +12,14 @@
 .theme {
   --bg: #0d1117; --bar: #161b22; --fg: #c9d1d9; --muted: #8b949e; --line: #30363d;
   --accent: #7ee787; --value: #79c0ff; --error: #ff7b72;
+  --keyword: #ff7b72; --string: #a5d6ff; --number: #79c0ff; --select: #264f78;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: light) {
   .theme {
     --bg: #fbfbf8; --bar: #f0f0eb; --fg: #24292f; --muted: #6e7781; --line: #d0d7de;
     --accent: #1a7f37; --value: #0550ae; --error: #cf222e;
+    --keyword: #cf222e; --string: #0a3069; --number: #0550ae; --select: #b6e3ff;
   }
 }
 
@@ -76,9 +78,32 @@ button:hover { border-color: var(--accent); color: var(--accent); }
 }
 .preview .stage { padding: 8px; }
 
-.editor {
-  display: block; width: 100%; height: 72px; resize: none; padding: 6px 8px;
-  background: var(--bg); border: 0; border-top: 1px solid var(--line); outline: none;
+.editor { border-top: 1px solid var(--line); max-height: 40%; overflow: auto; }
+.editor .cm-editor { background: var(--bg); color: var(--fg); font-size: 12px; }
+.editor .cm-editor.cm-focused { outline: none; }
+.editor .cm-scroller { font-family: var(--mono); line-height: 1.5; min-height: 64px; }
+.editor .cm-content { padding: 6px 0; caret-color: var(--accent); }
+.editor .cm-line { padding: 0 8px; }
+.editor .cm-cursor { border-left: 2px solid var(--accent); }
+.editor .cm-selectionBackground,
+.editor .cm-focused .cm-selectionBackground { background: var(--select); }
+.editor .cm-matchingBracket { color: var(--accent); background: none; outline: 1px solid var(--accent); }
+.editor .cm-nonmatchingBracket { color: var(--error); background: none; }
+.editor .cm-placeholder { color: var(--muted); }
+
+.tok-keyword { color: var(--keyword); }
+.tok-string { color: var(--string); }
+.tok-number, .tok-bool, .tok-atom { color: var(--number); }
+.tok-comment { color: var(--muted); font-style: italic; }
+.tok-punctuation, .tok-bracket { color: var(--muted); }
+
+.cm-tooltip {
+  background: var(--bar); color: var(--fg); border: 1px solid var(--line);
+  font: 12px/1.5 var(--mono);
 }
+.cm-tooltip-autocomplete > ul > li { padding: 0 8px; }
+.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--accent); color: var(--bg); }
+.cm-completionMatchedText { text-decoration: none; color: var(--accent); }
+li[aria-selected] .cm-completionMatchedText { color: var(--bg); }
 .hint { padding: 2px 8px; color: var(--muted); border-top: 1px solid var(--line); }
 ")

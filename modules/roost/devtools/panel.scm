@@ -4,18 +4,22 @@
   #:pure
   #:export (devtools)
   #:use-module (scheme base)
+  #:use-module ((hoot read) #:select (read))
   #:use-module ((roost dom) #:prefix h/)
   #:use-module ((roost props) #:select (props let-props))
   #:use-module ((roost hiccup) #:select (component))
   #:use-module ((roost hooks) #:select (use-state use-effect use-ref))
   #:use-module ((roost js) #:prefix js/)
   #:use-module (roost devtools evaluate)
-  #:use-module (roost devtools storage))
+  #:use-module (roost devtools storage)
+  #:use-module ((roost devtools editor) #:select (editor))
+  #:use-module ((roost devtools completion) #:select (visible-names source-defined-names)))
 
 (define main-module "(roost-dev main)")
 (define history-limit 100)
 
 (define (module-label name) (if (string=? name main-module) "main" name))
+(define (module-datum name) (read (open-input-string name)))
 (define (window) js/global)
 (define (event-value event) (js/ref event "target" "value"))
 
@@ -80,6 +84,14 @@
              (lambda (error)
                (js/method (js/ref (window) "console") "error" "roost devtools: copy failed" error))))
 
+;; The entries of an association list other than key's.
+(define (filter-out key alist)
+  (let loop ((alist alist) (kept '()))
+    (cond
+     ((null? alist) (reverse kept))
+     ((equal? (caar alist) key) (loop (cdr alist) kept))
+     (else (loop (cdr alist) (cons (car alist) kept))))))
+
 ;; Keeps the panel inside the viewport while it is dragged.
 (define (clamp-position x y)
   (cons (max 0 (min x (- (js/ref (window) "innerWidth") 80)))
@@ -87,9 +99,10 @@
 
 ;; modules: names of the modules to evaluate in, as text; preview: renders a node (or
 ;; #f) below the history and reports render errors to its second argument; saved: the
-;; stored settings, or #f.
+;; stored settings, or #f; module-forms: a module name's top-level forms, or #f;
+;; root: the shadow root holding the panel.
 (define (devtools attributes)
-  (let-props attributes (modules preview saved)
+  (let-props attributes (modules preview saved module-forms root)
     (let-values (((open? set-open!) (use-state (lambda () (setting saved "open" #f))))
                  ((module set-module!)
                   (use-state (lambda ()
@@ -105,18 +118,25 @@
                                                (setting saved "y" (- (js/ref (window) "innerHeight") 480))))))
                  ((draft set-draft!) (use-state ""))
                  ((cursor set-cursor!) (use-state #f))
+                 ;; Names defined from the panel, per module: ((module name ...) ...).
+                 ((defined set-defined!) (use-state '()))
                  ((selected set-selected!) (use-state #f))
                  ((preview-error set-preview-error!) (use-state #f)))
       (let ((drag (use-ref #f))
             (panel (use-ref #f))
             (log (use-ref #f)))
 
-        (define (run!)
-          (unless (string=? "" (js/method draft "trim"))
-            (let* ((result (evaluate draft module))
-                   (entry (make-entry module draft (result-output result) (result-value result)
+        (define (run! source)
+          (unless (string=? "" (js/method source "trim"))
+            (let* ((result (evaluate source module))
+                   (entry (make-entry module source (result-output result) (result-value result)
                                       (result-error result) (result-node result))))
               (set-entries! (keep-last history-limit (append entries (list entry))))
+              (unless (result-error result)
+                (set-defined! (lambda (defined)
+                                (let ((names (cdr (or (assoc module defined) (list module)))))
+                                  (cons (cons module (append (source-defined-names source) names))
+                                        (filter-out module defined))))))
               (set-draft! "")
               (set-cursor! #f)
               (when (result-node result)
@@ -133,13 +153,10 @@
             (set-cursor! next)
             (set-draft! (if next (entry-source (list-ref entries next)) ""))))
 
-        (define (on-key-down event)
-          (let ((command? (or (js/ref event "ctrlKey") (js/ref event "metaKey")))
-                (key (js/ref event "key")))
-            (cond
-             ((and command? (string=? key "Enter")) (js/method event "preventDefault") (run!))
-             ((and command? (string=? key "ArrowUp")) (js/method event "preventDefault") (browse! -1))
-             ((and command? (string=? key "ArrowDown")) (js/method event "preventDefault") (browse! 1)))))
+        ;; Completion offers what the module sees, and what the panel defined in it.
+        (define (names)
+          (visible-names (module-forms (module-datum module))
+                         (cdr (or (assoc module defined) (list module)))))
 
         (define (start-drag event)
           (unless (member (js/ref event "target" "tagName") '("SELECT" "OPTION" "BUTTON"))
@@ -235,12 +252,10 @@
                      (h/div (props #:class "stage")
                             (h/slot (props #:name "preview"))
                             (and preview-error (h/pre (props #:class "error") preview-error)))))
-               (h/textarea (props #:class "editor" #:value draft #:spell-check #f
-                                  #:placeholder "(+ 1 2)"
-                                  #:on-change (lambda (event) (set-draft! (event-value event)))
-                                  #:on-key-down on-key-down))
+               (component editor (props #:value draft #:on-change set-draft! #:on-run run!
+                                        #:on-history browse! #:names names #:root root))
                (h/div (props #:class "hint")
-                      "Ctrl+Enter run · Ctrl+↑/↓ history · in " (module-label module))))
+                      "Ctrl/⌘+Enter run · Ctrl/⌘+↑↓ history · in " (module-label module))))
          (h/button (props #:class "toggle" #:title "Roost REPL (Ctrl+`)"
                           #:on-click (lambda (event) (set-open! not)))
                    "λ"))))))

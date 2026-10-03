@@ -33,8 +33,9 @@
   (guard (e (#t (js/method root "render" #f) (on-error (exception-text e))))
     (js/method root "render" (js/from-scheme node))))
 
-;; modules: the names, as text, of the modules the panel can evaluate in.
-(define (mount-devtools! modules)
+;; modules: the names, as text, of the modules the panel can evaluate in;
+;; module-forms: a module name's top-level forms, or #f, for completion.
+(define (mount-devtools! modules module-forms)
   (let* ((host (element "roost-devtools"))
          (shadow (js/method host "attachShadow" (js/object "mode" "open")))
          (style (element "style"))
@@ -58,6 +59,8 @@
                (js/from-scheme
                 (component devtools
                            (props #:modules modules
+                                  #:module-forms module-forms
+                                  #:root shadow
                                   #:saved (load-settings)
                                   #:preview (lambda (node on-error)
                                               (vector-set! report-error 0 on-error)

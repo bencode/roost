@@ -35,6 +35,22 @@
         path
         (loop (cdr parts) (string-append path "/" (car parts))))))
 
+;; Each application module's top-level forms, as read when it last loaded or reloaded:
+;; the REPL panel completes names from them.
+(define loaded-forms '())
+
+(define (record-forms! name forms)
+  (set! loaded-forms (cons (cons name (map syntax->datum forms))
+                           (let loop ((entries loaded-forms))
+                             (cond
+                              ((null? entries) '())
+                              ((equal? (caar entries) name) (cdr entries))
+                              (else (cons (car entries) (loop (cdr entries)))))))))
+
+(define (module-forms name)
+  (let ((entry (assoc name loaded-forms)))
+    (and entry (cdr entry))))
+
 ;; Loads application modules from the development server: <server>/repl/load/a/b.
 (define (load-from-server root name)
   (let ((response (fetch (build-request
@@ -42,7 +58,9 @@
                                                       (module-path name)))))))
     (unless (<= 200 (response-code response) 299)
       (error "roost dev: cannot load module" name))
-    (load-module root (read-forms (response-body response)))))
+    (let ((forms (read-forms (response-body response))))
+      (record-forms! name forms)
+      (load-module root forms))))
 
 ;; The application's modules, as text, from <server>/modules.
 (define (module-names)
@@ -66,7 +84,7 @@
                        (string-append (js/ref js/global "location" "origin") base))
                       (current-module-loader load-from-server))
          (resolve-module (the-root-module) main-module #:load? #t)
-         (mount-devtools! (module-names))
+         (mount-devtools! (module-names) module-forms)
          (run-web-repl))))))
 
 (define (form-head datum)
@@ -107,6 +125,7 @@
                       (let ((name (defined-name (syntax->datum (car forms)))))
                         (loop (cdr forms) (if name (cons name names) names))))))
          (old (map (lambda (name) (binding module name)) names)))
+    (record-forms! (cadr header) forms)
     (for-each (lambda (form) (eval form module)) body)
     (for-each (lambda (name old)
                 (let ((new (binding module name)))

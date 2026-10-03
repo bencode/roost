@@ -12,6 +12,7 @@ const run = promisify(execFile)
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const loaderPath = path.join(repoRoot, 'js', 'roost-loader.js')
 const runtimeFiles = ['reflect.wasm', 'wtf8.wasm']
+const developmentOnly = /[\\/]roost[\\/](dev\.scm$|devtools)/
 const hootUrl = '/@hoot/'
 const reflectId = '\0hoot:reflect'
 
@@ -152,7 +153,9 @@ export default function roost({ loadPaths = [path.join(repoRoot, 'modules')], re
 
       const files = [...(await schemeFiles(path.dirname(entry))), ...(await Promise.all(loadPaths.map(schemeFiles))).flat()]
       files.forEach(file => this.addWatchFile(file))
-      const modules = await scanModules(files)
+      // Roost's live development modules only run in the development shell; the npm
+      // packages they use (CodeMirror) stay out of applications.
+      const modules = await scanModules(files.filter(file => !developmentOnly.test(file)))
       const reflectWasmDir = serving ? hootUrl.slice(0, -1) : `${config.base}hoot`.replace(/\/$/, '')
       return entryCode({ wasmFile, reflectWasmDir, modules })
     },
