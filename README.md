@@ -146,4 +146,4 @@ boot({
 | `examples/` | Example applications |
 | `tests/` | Guile and Vitest tests |
 
-See the [design principles](docs/design-principles.md) for how Roost works and why. [Writing applications](docs/writing-applications.md) shows how to organize and write an application, from the examples.
+See the [design principles](docs/design-principles.md) for how Roost works and why. [Using Roost](docs/using-roost.md) shows how to write components, state, effects, and calls into JavaScript, and how to develop in a running page.
