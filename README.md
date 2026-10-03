@@ -146,4 +146,4 @@ boot({
 | `examples/` | Example applications |
 | `tests/` | Guile and Vitest tests |
 
-See the [design principles](docs/design-principles.md) for how Roost works and why.
+See the [design principles](docs/design-principles.md) for how Roost works and why. [Writing applications](docs/writing-applications.md) shows how to organize and write an application, from the examples.
