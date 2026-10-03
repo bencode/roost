@@ -168,7 +168,7 @@ Most of the remaining cost belongs to the platform rather than to Roost's design
 
 ## Module imports and names
 
-Roost's modules are R7RS libraries, imported with `import` as Hoot programs do. The DOM module exports ordinary tag names. Documentation imports it with the prefix `h/`; applications can instead import short names with `only`. Tags are not injected into application scope automatically, and Roost does not add its own import syntax. [R7RS libraries](https://small.r7rs.org/attachment/r7rs.pdf).
+Roost's modules are Guile modules declared with `define-module`, which Hoot compiles like R7RS libraries; a program imports them with `import`. The DOM module exports ordinary tag names. Documentation imports it with the prefix `h/`; applications can instead import short names with `only`. Tags are not injected into application scope automatically, and Roost does not add its own import syntax. [R7RS libraries](https://small.r7rs.org/attachment/r7rs.pdf).
 
 ```scheme
 (import (scheme base)
@@ -190,3 +190,16 @@ A calling module may instead select short names:
 ```
 
 Callers choose the prefix. `h/section` is an imported Scheme identifier.
+
+An application's own modules use the same form. `define-module` keeps definitions at the top level of the file, where R7RS `define-library` would nest them inside `begin`. `#:pure` imports only what the module lists, as `define-library` does:
+
+```scheme
+(define-module (store cart)
+  #:pure
+  #:export (cart-count)
+  #:use-module (scheme base)
+  #:use-module ((hoot lists) #:select (fold)))
+
+(define (cart-count cart)
+  (fold (lambda (entry n) (+ n (cdr entry))) 0 cart))
+```
