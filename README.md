@@ -77,7 +77,9 @@ The page runs a development shell: Roost compiled once with Hoot's run-time modu
 | The module's header (`define-module`) or a `define-record-type` in it, or the entry `main.scm` | The page reloads and loads the modules from source again |
 | A Roost library | The shell is compiled again and the page reloads |
 
-A REPL connects to the page that opened last:
+In live mode, the λ button at the bottom right of the page opens a REPL panel (or press Ctrl+\`). It floats over the page without changing its layout; drag it by its title bar and resize it from its corner. Pick a module from the panel's menu and evaluate forms in it with Ctrl+Enter: you can call its private definitions and redefine them. A result that is a Hiccup node renders below the history with the page's own styles, so a component can be built and tried piece by piece. Ctrl+↑ and Ctrl+↓ walk through the history, and each entry can be copied back into a file. The panel keeps its place, size, module, and history across reloads.
+
+A REPL also connects from the terminal, to the page that opened last:
 
 ```sh
 pnpm repl                                   # interactive session; ,module (store cart) switches modules
@@ -129,7 +131,7 @@ boot({
 
 | Path | Contents |
 | --- | --- |
-| `modules/roost/` | The Scheme library: `props`, `hiccup`, `dom`, `react`, `hooks`, `js`, and `dev` for live development |
+| `modules/roost/` | The Scheme library: `props`, `hiccup`, `dom`, `react`, `hooks`, `js`; `dev` and `devtools/` (the REPL panel) for live development |
 | `js/` | The JavaScript kernel, the React builder, and the loader |
 | `tooling/` | The Vite plugin; live development (`live-dev.js`), its REPL relay, and the `pnpm repl` client |
 | `examples/` | Example applications |

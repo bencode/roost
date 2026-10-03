@@ -5,11 +5,12 @@
   #:pure
   #:export (dev-program)
   #:use-module (scheme base)
+  #:use-module (scheme write)
   #:use-module ((hoot modules) #:select (the-root-module resolve-module module-local-variable
                                          current-module-loader))
   #:use-module ((hoot hackable) #:select (load-module))
   #:use-module ((hoot eval) #:select (eval))
-  #:use-module ((hoot read) #:select (read-syntax))
+  #:use-module ((hoot read) #:select (read read-syntax))
   #:use-module ((hoot syntax-objects) #:select (syntax->datum))
   #:use-module ((hoot web-repl) #:select (current-repl-server run-web-repl))
   #:use-module ((fibers promises) #:select (call-with-async-result))
@@ -18,7 +19,8 @@
   #:use-module ((web response) #:select (response-code response-body))
   #:use-module ((web uri) #:select (string->uri))
   #:use-module ((roost react) #:select (transfer-component! refresh-roots!))
-  #:use-module ((roost js) #:prefix js/))
+  #:use-module ((roost js) #:prefix js/)
+  #:use-module ((roost devtools) #:select (mount-devtools!)))
 
 (define (read-forms port)
   (let loop ((forms '()))
@@ -42,8 +44,19 @@
       (error "roost dev: cannot load module" name))
     (load-module root (read-forms (response-body response)))))
 
+;; The application's modules, as text, from <server>/modules.
+(define (module-names)
+  (let ((response (fetch (build-request (string->uri (string-append (current-repl-server) "/modules"))))))
+    (unless (<= 200 (response-code response) 299)
+      (error "roost dev: cannot list modules"))
+    (map (lambda (name)
+           (let ((port (open-output-string)))
+             (write name port)
+             (get-output-string port)))
+         (read (response-body response)))))
+
 ;; Returns a procedure for Hoot's call_async: load the main module, whose body
-;; renders the page, then serve REPL clients.
+;; renders the page, mount the REPL panel, then serve REPL clients.
 (define (start base main-module)
   (lambda (resolved rejected)
     (call-with-async-result
@@ -53,6 +66,7 @@
                        (string-append (js/ref js/global "location" "origin") base))
                       (current-module-loader load-from-server))
          (resolve-module (the-root-module) main-module #:load? #t)
+         (mount-devtools! (module-names))
          (run-web-repl))))))
 
 (define (form-head datum)
