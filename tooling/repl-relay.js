@@ -1,4 +1,4 @@
-// Relays terminal REPL clients (`pnpm repl`, telnet, Emacs) to the page. Pages cannot
+// Relays terminal REPL clients (`pnpm repl`, nc) to the page. Pages cannot
 // listen for connections, so the page connects out over a WebSocket at <base>/repl and
 // clients connect here over TCP; the page runs a REPL session for each client.
 // Messages to the page: {type: "open" | "input" | "close", id, text}; from the page:
@@ -58,7 +58,13 @@ export const createRelay = ({ httpServer, sourceFor, port = 37146, log = console
     sockets.handleUpgrade(request, socket, head, page => {
       pages.push(page)
       page.on('message', data => {
-        const message = JSON.parse(data.toString())
+        let message
+        try {
+          message = JSON.parse(data.toString())
+        } catch (error) {
+          log(`roost repl: unreadable message from the page: ${error.message}`)
+          return
+        }
         if (message.type === 'output') clients.get(message.id)?.socket.write(message.text)
         else log(`roost repl: unexpected message ${data}`)
       })

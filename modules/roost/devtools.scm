@@ -13,6 +13,7 @@
   #:use-module ((roost devtools panel) #:select (mount-panel!))
   #:use-module ((roost devtools commands) #:select (repl-commands))
   #:use-module ((roost devtools remote) #:select (connect-terminals!))
+  #:use-module ((roost devtools sources) #:select (source-forms-of))
   #:use-module ((roost devtools style) #:select (stylesheet)))
 
 (define (document) (js/ref js/global "document"))
@@ -27,7 +28,7 @@
               '("fontFamily" "fontSize" "lineHeight" "color"))))
 
 ;; module: the module the REPL starts in. sources: returns the application modules'
-;; sources, #(name forms text spans) each. loader: loads a module while evaluating.
+;; sources (<module-source>). loader: loads a module while evaluating.
 ;; previewable?: values to render rather than print; render: (render value element
 ;; report-error) renders one into element, or #f. terminal-url: the WebSocket the
 ;; development server relays terminal REPLs through.
@@ -44,14 +45,6 @@
     (js/method (js/ref (document) "body") "append" host)
     (let ((commands (repl-commands sources)))
       (mount-panel! shadow preview (make-session module previewable? commands loader) render
-                    (lambda (name) (module-forms sources name)))
+                    (lambda (name) (source-forms-of (sources) name)))
       (connect-terminals! terminal-url
                           (lambda () (make-session module (lambda (value) #f) commands loader))))))
-
-;; A module's top-level forms, for completion, or #f when its source is unknown.
-(define (module-forms sources name)
-  (let loop ((entries (sources)))
-    (cond
-     ((null? entries) #f)
-     ((equal? (vector-ref (car entries) 0) name) (vector-ref (car entries) 1))
-     (else (loop (cdr entries))))))

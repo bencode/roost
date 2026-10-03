@@ -15,7 +15,8 @@
                                             exception-with-source? exception-source-file
                                             exception-source-line exception-source-column))
   #:use-module ((roost js) #:prefix js/)
-  #:use-module ((roost devtools completion) #:select (visible-names defined-names)))
+  #:use-module ((roost devtools completion) #:select (visible-names defined-names))
+  #:use-module (roost devtools sources))
 
 ;;; Text helpers
 
@@ -52,19 +53,7 @@
             (display (make-string (- width (string-length s)) #\space)))
           (loop (cdr strings) (+ column 1))))))))
 
-;;; Sources: #(name forms text spans) for each application module, from (roost dev)
-
-(define (source-name entry) (vector-ref entry 0))
-(define (source-forms entry) (vector-ref entry 1))
-(define (source-text entry) (vector-ref entry 2))
-(define (source-spans entry) (vector-ref entry 3))
-
-(define (source-of entries name)
-  (let loop ((entries entries))
-    (cond
-     ((null? entries) #f)
-     ((equal? (source-name (car entries)) name) (car entries))
-     (else (loop (cdr entries))))))
+;;; Definitions in the application's sources
 
 (define (current-module repl) (repl-environment-module (repl-environment repl)))
 
@@ -84,11 +73,11 @@
 
 ;; The text of the form defining name in entry, with its comments, or #f.
 (define (definition-text entry name)
-  (let loop ((forms (source-forms entry)) (spans (source-spans entry)))
+  (let loop ((forms (module-source-forms entry)) (spans (module-source-spans entry)))
     (cond
      ((null? forms) #f)
      ((memq name (defined-names (list (car forms))))
-      (let ((text (source-text entry)) (span (car spans)))
+      (let ((text (module-source-text entry)) (span (car spans)))
         (substring text (comments-above text (line-start text (car span))) (cdr span))))
      (else (loop (cdr forms) (cdr spans))))))
 
@@ -103,7 +92,7 @@
             (let* ((module (current-module repl))
                    (entry (source-of (sources) (module-name module)))
                    (names (if entry
-                              (visible-names (source-forms entry) (defined))
+                              (visible-names (module-source-forms entry) (defined))
                               (map symbol->string (module-exported-names module)))))
               (print-columns (filter (lambda (name) (starts-with? name prefix)) names))))))
 
@@ -116,8 +105,8 @@
             (let ((matches
                    (sort (apply append
                                 (map (lambda (entry)
-                                       (map (lambda (name) (cons (symbol->string name) (source-name entry)))
-                                            (defined-names (cdr (source-forms entry)))))
+                                       (map (lambda (name) (cons (symbol->string name) (module-source-name entry)))
+                                            (defined-names (cdr (module-source-forms entry)))))
                                      (sources)))
                          (lambda (a b) (string<? (car a) (car b))))))
               (let ((found (filter (lambda (match) (contains? (car match) text)) matches)))
@@ -148,7 +137,7 @@
                   (display " in the application's modules.") (newline))
                  ((definition-text (car entries) name)
                   => (lambda (definition)
-                       (display ";; ") (display (written (source-name (car entries)))) (newline)
+                       (display ";; ") (display (written (module-source-name (car entries)))) (newline)
                        (display definition) (newline)))
                  (else (loop (cdr entries)))))))))
 
@@ -194,7 +183,7 @@
                 (display (if all? (get-output-string port) (named-frames (get-output-string port))))
                 (newline))))))
 
-;; sources: returns the application modules' sources. The result, given a session's
+;; sources: returns the application modules' sources (<module-source>). The result, given a session's
 ;; entry-height and defined-names thunks, is the list of commands for it.
 (define (repl-commands sources)
   (lambda (entry-height defined)

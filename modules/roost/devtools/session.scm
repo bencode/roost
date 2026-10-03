@@ -74,9 +74,10 @@
 (define (note-definitions! session exp)
   (unless (meta-expression? exp)
     (let ((datum (if (syntax? exp) (syntax->datum exp) exp)))
-      (set-session-defined-names! session
-                                  (append (map symbol->string (defined-names (list datum)))
-                                          (session-defined-names session))))))
+      (for-each (lambda (name)
+                  (unless (member name (session-defined-names session))
+                    (set-session-defined-names! session (cons name (session-defined-names session)))))
+                (map symbol->string (defined-names (list datum)))))))
 
 ;; Evaluates each expression of text. Returns #(output previews): the text the REPL
 ;; printed, and the previewable values, last first.

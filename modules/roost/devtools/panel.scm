@@ -5,6 +5,7 @@
   #:pure
   #:export (mount-panel!)
   #:use-module (scheme base)
+  #:use-module (scheme lazy)
   #:use-module ((roost js) #:prefix js/)
   #:use-module (roost devtools session)
   #:use-module ((roost devtools editor) #:select (make-editor editor-set-text! editor-focus!))
@@ -33,10 +34,14 @@
 (define (take items n)
   (if (or (= n 0) (null? items)) '() (cons (car items) (take (cdr items) (- n 1)))))
 
-;; Output that reports an error ("Scheme error:", "While reading input:", ...) shows as one.
+;; Output with a line where the REPL reports an error shows as one. Lazy: Hoot
+;; evaluates module bodies at expansion time, where JavaScript is absent.
+(define error-line
+  (delay (js/new (js/ref js/global "RegExp")
+                 "^(Scheme error:|While (reading input|executing meta-command):)" "m")))
+
 (define (output-view text)
-  (let ((error? (or (js/method text "includes" "Scheme error:") (js/method text "includes" "While "))))
-    (element "pre" (if error? "output error" "output") text)))
+  (element "pre" (if (js/method (force error-line) "test" text) "output error" "output") text))
 
 ;; Keeps the panel inside the viewport.
 (define (clamp x y)
