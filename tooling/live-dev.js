@@ -24,7 +24,11 @@ const startShell = key =>
   [
     `([start, reload]) => {`,
     `  const show = error => (error instanceof Error ? error : repr(error))`,
-    `  start.call_async().catch(error => console.error('roost dev:', show(error)))`,
+    `  try {`,
+    `    start.call()`,
+    `  } catch (error) {`,
+    `    console.error('roost dev:', show(error))`,
+    `  }`,
     `  import.meta.hot?.on('roost:reload', ({ key, source }) => {`,
     `    if (key !== ${JSON.stringify(key)}) return`,
     `    try {`,

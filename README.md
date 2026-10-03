@@ -79,7 +79,16 @@ The page runs a development shell: Roost compiled once with Hoot's run-time modu
 
 In live mode, the λ button at the bottom right of the page opens a REPL panel (or press Ctrl+\`). It is the same REPL as the terminal's, inside the page: `,m (store cart)` switches to a module, so its private definitions can be called and redefined; an error opens a debugging level (`,bt` shows the backtrace, `,q` leaves it); `,help` lists the commands. A result that is a Hiccup node renders below the output with the page's own styles, so a component can be built and tried piece by piece. The input is [CodeMirror](https://codemirror.net), driven from Scheme through `(roost js)`: Scheme highlighting, bracket matching and closing, and completion of the names the current module can see. Mod+Enter runs, Mod+↑ and Mod+↓ walk through the history. The panel floats over the page without changing its layout, and keeps its place, size, and input history across reloads. It is built on the DOM alone, so it does not need React; CodeMirror is a development dependency that builds leave out.
 
-A REPL also connects from the terminal, to the page that opened last:
+Besides Hoot's own commands (`,m`, `,use`, `,d`, `,q`, `,help`), the REPL has commands for looking into the program:
+
+| Command | Shows |
+| --- | --- |
+| `,names [PREFIX]` | The names the current module sees, or those starting with PREFIX |
+| `,apropos TEXT` | The application's definitions whose names contain TEXT, with their modules |
+| `,source NAME` | The source of NAME's definition, with the comments above it |
+| `,bt` / `,bt all` | After an error, the backtrace without the frames that ran the REPL; `all` keeps them |
+
+A REPL also connects from the terminal, to the page that opened last. It is the same REPL as the panel's, with the same commands:
 
 ```sh
 pnpm repl                                   # interactive session; ,module (store cart) switches modules

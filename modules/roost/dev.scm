@@ -10,25 +10,36 @@
                                          current-module-loader))
   #:use-module ((hoot hackable) #:select (load-module))
   #:use-module ((hoot eval) #:select (eval))
-  #:use-module ((hoot read) #:select (read-syntax))
+  #:use-module ((hoot read) #:select (read read-syntax))
+  #:use-module ((hoot ports) #:select (port-line port-column))
   #:use-module ((hoot error-handling) #:select (format-exception))
-  #:use-module ((hoot syntax-objects) #:select (syntax->datum))
-  #:use-module ((hoot web-repl) #:select (current-repl-server run-web-repl))
-  #:use-module ((fibers promises) #:select (call-with-async-result))
-  #:use-module ((web fetch) #:select (fetch))
-  #:use-module ((web request) #:select (build-request))
-  #:use-module ((web response) #:select (response-code response-body))
-  #:use-module ((web uri) #:select (string->uri))
+  #:use-module ((hoot syntax-objects) #:select (syntax->datum syntax-sourcev))
   #:use-module ((roost react) #:select (transfer-component! refresh-roots!))
   #:use-module ((roost js) #:prefix js/)
   #:use-module ((roost devtools) #:select (mount-devtools!)))
 
-(define (read-forms port)
-  (let loop ((forms '()))
-    (let ((form (read-syntax port)))
-      (if (eof-object? form)
-          (reverse forms)
-          (loop (cons form forms))))))
+;; Offsets in text where each line starts.
+(define (line-starts text)
+  (let loop ((i 0) (starts '(0)))
+    (cond
+     ((= i (string-length text)) (list->vector (reverse starts)))
+     ((char=? (string-ref text i) #\newline) (loop (+ i 1) (cons (+ i 1) starts)))
+     (else (loop (+ i 1) starts)))))
+
+;; The top-level forms of text, as syntax, with each one's (start . end) offsets in it.
+(define (read-forms text)
+  (let ((port (open-input-string text))
+        (starts (line-starts text)))
+    (define (offset line column) (+ (vector-ref starts line) column))
+    (let loop ((forms '()) (spans '()))
+      (let ((form (read-syntax port)))
+        (if (eof-object? form)
+            (values (reverse forms) (reverse spans))
+            (let ((source (syntax-sourcev form)))
+              (loop (cons form forms)
+                    (cons (cons (offset (vector-ref source 1) (vector-ref source 2))
+                                (offset (port-line port) (port-column port)))
+                          spans))))))))
 
 (define (module-path name)
   (let loop ((parts (map symbol->string name)) (path ""))
@@ -36,28 +47,33 @@
         path
         (loop (cdr parts) (string-append path "/" (car parts))))))
 
-;; Each application module's top-level forms, as read when it last loaded or reloaded:
-;; the REPL panel completes names from them.
-(define loaded-forms '())
+;; Each application module's source as it last loaded or reloaded, newest first:
+;; #(name forms text spans), forms as data. The REPL completes names from them and
+;; shows definitions from them.
+(define loaded-sources '())
 
-(define (record-forms! name forms)
-  (set! loaded-forms (cons (cons name (map syntax->datum forms))
-                           (filter (lambda (entry) (not (equal? (car entry) name))) loaded-forms))))
+(define (sources) loaded-sources)
 
-(define (module-forms name)
-  (let ((entry (assoc name loaded-forms)))
-    (and entry (cdr entry))))
+;; Reads a module's source and records it; returns its forms, as syntax.
+(define (record-source! name text)
+  (call-with-values (lambda () (read-forms text))
+    (lambda (forms spans)
+      (set! loaded-sources
+            (cons (vector name (map syntax->datum forms) text spans)
+                  (filter (lambda (entry) (not (equal? (vector-ref entry 0) name)))
+                          loaded-sources)))
+      forms)))
 
-;; Loads application modules from the development server: <server>/repl/load/a/b.
-(define (load-from-server root name)
-  (let ((response (fetch (build-request
-                          (string->uri (string-append (current-repl-server) "/repl/load"
-                                                      (module-path name)))))))
-    (unless (<= 200 (response-code response) 299)
-      (error "roost dev: cannot load module" name))
-    (let ((forms (read-forms (response-body response))))
-      (record-forms! name forms)
-      (load-module root forms))))
+;; Loads application modules from the development server at base: <base>/repl/load/a/b.
+;; The request is synchronous, so the REPL can load a module while it evaluates.
+(define (load-from-server base)
+  (lambda (root name)
+    (let ((request (js/new (js/ref js/global "XMLHttpRequest"))))
+      (js/method request "open" "GET" (string-append base "/repl/load" (module-path name)) #f)
+      (js/method request "send")
+      (unless (<= 200 (js/ref request "status") 299)
+        (error "roost dev: cannot load module" name))
+      (load-module root (record-source! name (js/ref request "responseText"))))))
 
 ;; Hiccup nodes are vectors whose first element is a tag or a component; the REPL
 ;; panel renders them rather than printing them.
@@ -90,20 +106,18 @@
   (guard (e (#t (js/method preview-root "render" #f) (report (exception-text e))))
     (js/method preview-root "render" (js/from-scheme value))))
 
-;; Returns a procedure for Hoot's call_async: load the main module, whose body
-;; renders the page, mount the REPL panel, then serve REPL clients.
+;; Returns the shell's start: load the main module, whose body renders the page, then
+;; mount the REPL panel and connect terminal REPLs through the development server.
 (define (start base main-module)
-  (lambda (resolved rejected)
-    (call-with-async-result
-     resolved rejected
-     (lambda ()
-       (parameterize ((current-repl-server
-                       (string-append (js/ref js/global "location" "origin") base))
-                      (current-module-loader load-from-server))
-         (resolve-module (the-root-module) main-module #:load? #t)
-         (mount-devtools! (resolve-module (the-root-module) main-module)
-                          module-forms hiccup-node? render-preview)
-         (run-web-repl))))))
+  (lambda ()
+    (let* ((origin (js/ref js/global "location" "origin"))
+           (loader (load-from-server (string-append origin base))))
+      (parameterize ((current-module-loader loader))
+        (resolve-module (the-root-module) main-module #:load? #t))
+      (mount-devtools! (resolve-module (the-root-module) main-module)
+                       sources loader hiccup-node? render-preview
+                       ;; http://host → ws://host, https://host → wss://host
+                       (string-append "ws" (substring origin 4 (string-length origin)) base "/repl")))))
 
 (define (form-head datum)
   (and (pair? datum) (car datum)))
@@ -133,9 +147,9 @@
 ;; Evaluates a saved module's definitions in the running module. Components keep their
 ;; React types, so mounted ones keep their state and show the new definitions.
 (define (reload! source)
-  (let* ((forms (read-forms (open-input-string source)))
-         (header (syntax->datum (car forms)))
-         (module (resolve-module (the-root-module) (cadr header)))
+  (let* ((modname (cadr (read (open-input-string source))))   ; (define-module NAME ...)
+         (forms (record-source! modname source))
+         (module (resolve-module (the-root-module) modname))
          (body (filter-forms module (cdr forms)))
          (names (let loop ((forms body) (names '()))
                   (if (null? forms)
@@ -143,7 +157,6 @@
                       (let ((name (defined-name (syntax->datum (car forms)))))
                         (loop (cdr forms) (if name (cons name names) names))))))
          (old (map (lambda (name) (binding module name)) names)))
-    (record-forms! (cadr header) forms)
     (for-each (lambda (form) (eval form module)) body)
     (for-each (lambda (name old)
                 (let ((new (binding module name)))

@@ -11,6 +11,8 @@
   #:use-module ((roost js) #:prefix js/)
   #:use-module ((roost devtools session) #:select (make-session))
   #:use-module ((roost devtools panel) #:select (mount-panel!))
+  #:use-module ((roost devtools commands) #:select (repl-commands))
+  #:use-module ((roost devtools remote) #:select (connect-terminals!))
   #:use-module ((roost devtools style) #:select (stylesheet)))
 
 (define (document) (js/ref js/global "document"))
@@ -24,10 +26,12 @@
     (for-each (lambda (property) (js/set! style property (js/ref computed property)))
               '("fontFamily" "fontSize" "lineHeight" "color"))))
 
-;; module: the module the REPL starts in. module-forms: a module name's top-level
-;; forms, or #f, for completion. previewable?: values to render rather than print;
-;; render: (render value element report-error) renders one into element, or #f.
-(define (mount-devtools! module module-forms previewable? render)
+;; module: the module the REPL starts in. sources: returns the application modules'
+;; sources, #(name forms text spans) each. loader: loads a module while evaluating.
+;; previewable?: values to render rather than print; render: (render value element
+;; report-error) renders one into element, or #f. terminal-url: the WebSocket the
+;; development server relays terminal REPLs through.
+(define (mount-devtools! module sources loader previewable? render terminal-url)
   (let* ((host (element "roost-devtools"))
          (shadow (js/method host "attachShadow" (js/object "mode" "open")))
          (style (element "style"))
@@ -38,4 +42,16 @@
     (js/method shadow "append" style)
     (js/method host "append" preview)
     (js/method (js/ref (document) "body") "append" host)
-    (mount-panel! shadow preview (make-session module previewable?) render module-forms)))
+    (let ((commands (repl-commands sources)))
+      (mount-panel! shadow preview (make-session module previewable? commands loader) render
+                    (lambda (name) (module-forms sources name)))
+      (connect-terminals! terminal-url
+                          (lambda () (make-session module (lambda (value) #f) commands loader))))))
+
+;; A module's top-level forms, for completion, or #f when its source is unknown.
+(define (module-forms sources name)
+  (let loop ((entries (sources)))
+    (cond
+     ((null? entries) #f)
+     ((equal? (vector-ref (car entries) 0) name) (vector-ref (car entries) 1))
+     (else (loop (cdr entries))))))

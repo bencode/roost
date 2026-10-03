@@ -6,29 +6,54 @@
   #:export (make-session session-run! session-prompt session-module session-defined-names)
   #:use-module (scheme base)
   #:use-module (scheme write)
-  #:use-module ((hoot modules) #:select (module-name))
+  #:use-module ((hoot modules) #:select (module-name current-module-loader))
   #:use-module ((hoot repl) #:select (make-repl make-repl-environment repl-read
                                       repl-eval-with-error-handling repl-prompt repl-welcome
                                       repl-depth repl-environment repl-environment-module
+                                      repl-environment-language make-repl-language
+                                      repl-language-title repl-language-reader
+                                      repl-language-evaluator repl-add-meta-command!
                                       current-repl repl-quit-exception? meta-expression?))
-  #:use-module ((hoot error-handling) #:select (format-exception))
+  #:use-module ((hoot error-handling) #:select (format-exception stack-height))
   #:use-module ((hoot syntax-objects) #:select (syntax? syntax->datum))
   #:use-module ((roost devtools completion) #:select (defined-names)))
 
 ;; previewable?: values to hand back instead of printing, such as nodes a page can
-;; render. defined: names (strings) the session's input has defined.
+;; render. loader: the module loader while evaluating. defined: names (strings) the
+;; session's input has defined. entry-height: the stack height where the last
+;; evaluation began, so a backtrace can leave out the frames that led to it.
 (define-record-type <session>
-  (%make-session repl previewable? defined)
+  (%make-session repl previewable? loader defined entry-height)
   session?
-  (repl session-repl)
+  (repl session-repl set-session-repl!)
   (previewable? session-previewable?)
-  (defined session-defined-names set-session-defined-names!))
+  (loader session-loader)
+  (defined session-defined-names set-session-defined-names!)
+  (entry-height session-entry-height set-session-entry-height!))
 
-;; module: the module to start in.
-(define (make-session module previewable?)
-  (%make-session (make-repl #:environment (make-repl-environment #:module module))
-                 previewable?
-                 '()))
+;; Scheme, with an evaluator that notes the stack height where evaluation begins.
+(define (noting-entry language session)
+  (make-repl-language
+   #:title (repl-language-title language)
+   #:reader (repl-language-reader language)
+   #:evaluator (lambda (exp module)
+                 (set-session-entry-height! session (stack-height))
+                 ((repl-language-evaluator language) exp module))))
+
+;; module: the module to start in. commands: given the session's entry-height and
+;; defined-names thunks, the meta-commands to add (replacing built-in ones of the
+;; same name).
+(define (make-session module previewable? commands loader)
+  (let* ((session (%make-session #f previewable? loader '() 0))
+         (scheme (repl-environment-language (make-repl-environment)))
+         (repl (make-repl #:environment
+                          (make-repl-environment #:language (noting-entry scheme session)
+                                                 #:module module))))
+    (for-each (lambda (command) (repl-add-meta-command! repl command))
+              (commands (lambda () (session-entry-height session))
+                        (lambda () (session-defined-names session))))
+    (set-session-repl! session repl)
+    session))
 
 (define (session-prompt session) (repl-prompt (session-repl session)))
 
@@ -68,7 +93,8 @@
         (display "=> #<preview>\n"))
        (else (display "=> ") (write value) (newline))))
     (parameterize ((current-output-port output)
-                   (current-repl repl))
+                   (current-repl repl)
+                   (current-module-loader (session-loader session)))
       (let loop ()
         (let ((exp (read-next repl input)))
           (unless (eof-object? exp)
