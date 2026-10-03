@@ -5,6 +5,7 @@
   #:export (evaluate result-output result-value result-node result-error hiccup-node? exception-text)
   #:use-module (scheme base)
   #:use-module (scheme write)
+  #:use-module ((hoot lists) #:select (filter))
   #:use-module ((hoot modules) #:select (the-root-module resolve-module))
   #:use-module ((hoot eval) #:select (eval))
   #:use-module ((hoot read) #:select (read))
@@ -40,11 +41,7 @@
 
 (define (written values)
   (let ((port (open-output-string)))
-    (let loop ((rest (let keep ((rest values))
-                       (cond
-                        ((null? rest) '())
-                        ((eq? (car rest) unspecified) (keep (cdr rest)))
-                        (else (cons (car rest) (keep (cdr rest)))))))
+    (let loop ((rest (filter (lambda (v) (not (eq? v unspecified))) values))
                (first? #t))
       (unless (null? rest)
         (unless first? (newline port))

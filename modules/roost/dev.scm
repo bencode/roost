@@ -6,6 +6,7 @@
   #:export (dev-program)
   #:use-module (scheme base)
   #:use-module (scheme write)
+  #:use-module ((hoot lists) #:select (filter))
   #:use-module ((hoot modules) #:select (the-root-module resolve-module module-local-variable
                                          current-module-loader))
   #:use-module ((hoot hackable) #:select (load-module))
@@ -41,11 +42,7 @@
 
 (define (record-forms! name forms)
   (set! loaded-forms (cons (cons name (map syntax->datum forms))
-                           (let loop ((entries loaded-forms))
-                             (cond
-                              ((null? entries) '())
-                              ((equal? (caar entries) name) (cdr entries))
-                              (else (cons (car entries) (loop (cdr entries)))))))))
+                           (filter (lambda (entry) (not (equal? (car entry) name))) loaded-forms))))
 
 (define (module-forms name)
   (let ((entry (assoc name loaded-forms)))

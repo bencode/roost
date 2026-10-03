@@ -5,6 +5,7 @@
   #:export (devtools)
   #:use-module (scheme base)
   #:use-module ((hoot read) #:select (read))
+  #:use-module ((hoot lists) #:select (filter))
   #:use-module ((roost dom) #:prefix h/)
   #:use-module ((roost props) #:select (props let-props))
   #:use-module ((roost hiccup) #:select (component))
@@ -84,13 +85,10 @@
              (lambda (error)
                (js/method (js/ref (window) "console") "error" "roost devtools: copy failed" error))))
 
-;; The entries of an association list other than key's.
-(define (filter-out key alist)
-  (let loop ((alist alist) (kept '()))
-    (cond
-     ((null? alist) (reverse kept))
-     ((equal? (caar alist) key) (loop (cdr alist) kept))
-     (else (loop (cdr alist) (cons (car alist) kept))))))
+;; Names defined from the panel in a module, from ((module name ...) ...).
+(define (defined-in module defined)
+  (let ((entry (assoc module defined)))
+    (if entry (cdr entry) '())))
 
 ;; Keeps the panel inside the viewport while it is dragged.
 (define (clamp-position x y)
@@ -134,9 +132,10 @@
               (set-entries! (keep-last history-limit (append entries (list entry))))
               (unless (result-error result)
                 (set-defined! (lambda (defined)
-                                (let ((names (cdr (or (assoc module defined) (list module)))))
-                                  (cons (cons module (append (source-defined-names source) names))
-                                        (filter-out module defined))))))
+                                (cons (cons module (append (source-defined-names source)
+                                                           (defined-in module defined)))
+                                      (filter (lambda (entry) (not (equal? (car entry) module)))
+                                              defined)))))
               (set-draft! "")
               (set-cursor! #f)
               (when (result-node result)
@@ -155,8 +154,7 @@
 
         ;; Completion offers what the module sees, and what the panel defined in it.
         (define (names)
-          (visible-names (module-forms (module-datum module))
-                         (cdr (or (assoc module defined) (list module)))))
+          (visible-names (module-forms (module-datum module)) (defined-in module defined)))
 
         (define (start-drag event)
           (unless (member (js/ref event "target" "tagName") '("SELECT" "OPTION" "BUTTON"))

@@ -9,17 +9,10 @@
   #:use-module (scheme base)
   #:use-module (scheme cxr)
   #:use-module (scheme lazy)
-  #:use-module ((hoot lists) #:select (sort))
+  #:use-module ((hoot lists) #:select (filter sort))
   #:use-module ((hoot modules) #:select (the-root-module resolve-module module-exported-names))
   #:use-module ((hoot read) #:select (read))
   #:use-module ((roost js) #:prefix js/))
-
-(define (keep pred items)
-  (let loop ((items items) (kept '()))
-    (cond
-     ((null? items) (reverse kept))
-     ((pred (car items)) (loop (cdr items) (cons (car items) kept)))
-     (else (loop (cdr items) kept)))))
 
 (define (library-names name)
   (let ((module (and (list? name) (resolve-module (the-root-module) name))))
@@ -32,8 +25,8 @@
 ;; (only s id ...), (except s id ...), (prefix s p), (rename s (from to) ...), or a name.
 (define (r7rs-names spec)
   (case (and (pair? spec) (car spec))
-    ((only) (keep (lambda (name) (memq name (cddr spec))) (r7rs-names (cadr spec))))
-    ((except) (keep (lambda (name) (not (memq name (cddr spec)))) (r7rs-names (cadr spec))))
+    ((only) (filter (lambda (name) (memq name (cddr spec))) (r7rs-names (cadr spec))))
+    ((except) (filter (lambda (name) (not (memq name (cddr spec)))) (r7rs-names (cadr spec))))
     ((prefix) (prefixed (caddr spec) (r7rs-names (cadr spec))))
     ((rename) (map (lambda (name)
                      (let ((renamed (assq name (cddr spec))))
@@ -53,7 +46,7 @@
                      ((eq? (car options) #:select)
                       (map (lambda (item) (if (pair? item) (cdr item) item)) value))
                      ((eq? (car options) #:hide)
-                      (keep (lambda (name) (not (memq name value))) names))
+                      (filter (lambda (name) (not (memq name value))) names))
                      ((eq? (car options) #:prefix) (prefixed value names))
                      (else names))))))
       (library-names spec)))
@@ -97,7 +90,7 @@
                                             (if (pair? rest) (cdr rest) '())))))
                '()))
           (else '()))))
-  (keep symbol? (apply append (map form-names forms))))
+  (filter symbol? (apply append (map form-names forms))))
 
 ;; The names that source text defines, as strings. The text must read.
 (define (source-defined-names source)

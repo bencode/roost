@@ -84,7 +84,11 @@
       (use-effect (lambda ()
                     (let ((created (make-view (js/ref container "current") root value handlers)))
                       (js/set! view "current" created)
-                      (js/method created "focus")
+                      ;; Take the focus only when the page has none: a panel restored
+                      ;; open on load must not steal it from the application.
+                      (when (eq? (js/ref js/global "document" "activeElement")
+                                 (js/ref js/global "document" "body"))
+                        (js/method created "focus"))
                       (lambda () (js/method created "destroy"))))
                   '())
       (use-effect (lambda ()
