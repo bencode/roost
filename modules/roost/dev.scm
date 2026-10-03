@@ -5,13 +5,13 @@
   #:pure
   #:export (dev-program)
   #:use-module (scheme base)
-  #:use-module (scheme write)
   #:use-module ((hoot lists) #:select (filter))
   #:use-module ((hoot modules) #:select (the-root-module resolve-module module-local-variable
                                          current-module-loader))
   #:use-module ((hoot hackable) #:select (load-module))
   #:use-module ((hoot eval) #:select (eval))
-  #:use-module ((hoot read) #:select (read read-syntax))
+  #:use-module ((hoot read) #:select (read-syntax))
+  #:use-module ((hoot error-handling) #:select (format-exception))
   #:use-module ((hoot syntax-objects) #:select (syntax->datum))
   #:use-module ((hoot web-repl) #:select (current-repl-server run-web-repl))
   #:use-module ((fibers promises) #:select (call-with-async-result))
@@ -59,16 +59,36 @@
       (record-forms! name forms)
       (load-module root forms))))
 
-;; The application's modules, as text, from <server>/modules.
-(define (module-names)
-  (let ((response (fetch (build-request (string->uri (string-append (current-repl-server) "/modules"))))))
-    (unless (<= 200 (response-code response) 299)
-      (error "roost dev: cannot list modules"))
-    (map (lambda (name)
-           (let ((port (open-output-string)))
-             (write name port)
-             (get-output-string port)))
-         (read (response-body response)))))
+;; Hiccup nodes are vectors whose first element is a tag or a component; the REPL
+;; panel renders them rather than printing them.
+(define (hiccup-node? value)
+  (and (vector? value)
+       (> (vector-length value) 0)
+       (let ((type (vector-ref value 0)))
+         (or (string? type) (procedure? type) (js/value? type)))))
+
+(define (exception-text e)
+  (let ((port (open-output-string)))
+    (format-exception e port)
+    (get-output-string port)))
+
+;; The panel's previews render with React, in a root made on first use. Converting a
+;; node walks its whole tree at once, so a malformed node fails at once; components
+;; fail while React renders, in onUncaughtError.
+(define preview-root #f)
+(define report-preview-error (lambda (message) #f))
+
+(define (render-preview value element report)
+  (set! report-preview-error report)
+  (unless preview-root
+    (set! preview-root
+          (js/method (js/module "react-dom/client") "createRoot" element
+                     (js/object "onUncaughtError"
+                                (js/function (lambda (error info)
+                                               (report-preview-error (js/ref error "message")))
+                                             2)))))
+  (guard (e (#t (js/method preview-root "render" #f) (report (exception-text e))))
+    (js/method preview-root "render" (js/from-scheme value))))
 
 ;; Returns a procedure for Hoot's call_async: load the main module, whose body
 ;; renders the page, mount the REPL panel, then serve REPL clients.
@@ -81,7 +101,8 @@
                        (string-append (js/ref js/global "location" "origin") base))
                       (current-module-loader load-from-server))
          (resolve-module (the-root-module) main-module #:load? #t)
-         (mount-devtools! (module-names) module-forms)
+         (mount-devtools! (resolve-module (the-root-module) main-module)
+                          module-forms hiccup-node? render-preview)
          (run-web-repl))))))
 
 (define (form-head datum)

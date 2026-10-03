@@ -86,25 +86,9 @@ export const createLiveDev = ({ config, loadPaths, reflectWasmDir, build }) => {
     return build.entryCode({ wasmFile, reflectWasmDir, modules: await build.scanModules(files), then: startShell(key) })
   }
 
-  // GET <base>/modules lists the page's modules, read afresh so new files appear.
-  const moduleNames = async key => {
-    const page = pages.get(key)
-    if (!page) return null
-    const sources = await Promise.all((await build.schemeFiles(page.dir)).map(file => readFile(file, 'utf8')))
-    const names = sources.map(source => moduleHeader(source)?.name).filter(Boolean).sort()
-    return `(${[mainModule, ...names].join(' ')})`
-  }
-
   const attach = server => {
     relay = createRelay({ httpServer: server.httpServer, sourceFor: pageSource })
     server.middlewares.use(relay.middleware)
-    server.middlewares.use(async (request, response, next) => {
-      const match = new URL(request.url, 'http://host').pathname.match(/^\/@roost-repl\/([^/]+)\/modules$/)
-      const names = match && (await moduleNames(decodeURIComponent(match[1])))
-      if (!names) return next()
-      response.setHeader('Content-Type', 'text/plain; charset=utf-8')
-      response.end(names)
-    })
   }
 
   const pageOf = file => [...pages.entries()].find(([, page]) => file.startsWith(page.dir + path.sep))
