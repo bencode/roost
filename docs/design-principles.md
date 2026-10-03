@@ -203,3 +203,5 @@ An application's own modules use the same form. `define-module` keeps definition
 (define (cart-count cart)
   (fold (lambda (entry n) (+ n (cdr entry))) 0 cart))
 ```
+
+Import Hoot's own small libraries, such as `(hoot keywords)`, rather than `(guile)`: importing even one name from `(guile)` makes every build expand Guile's whole compatibility library, which adds about two seconds to each compile.

@@ -8,7 +8,7 @@
   #:use-module (scheme char)
   #:use-module (scheme lazy)
   #:use-module (scheme write)
-  #:use-module ((guile) #:select (keyword->symbol))
+  #:use-module ((hoot keywords) #:select (keyword->symbol))
   #:use-module (hoot ffi)
   #:use-module (hoot hashtables)
   #:use-module (hoot inline-wasm)

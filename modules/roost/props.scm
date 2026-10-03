@@ -3,8 +3,9 @@
   #:export (props props? props-entries props-ref let-props)
   #:use-module (scheme base)
   #:use-module (scheme case-lambda)
-  #:use-module ((guile) #:select (keyword? symbol->keyword syntax-case syntax with-syntax
-                                  identifier? datum->syntax syntax->datum)))
+  #:use-module ((hoot keywords) #:select (keyword? symbol->keyword))
+  #:use-module ((hoot syntax) #:select (syntax-case syntax with-syntax identifier?))
+  #:use-module ((hoot syntax-objects) #:select (datum->syntax syntax->datum)))
 
 (define-record-type <props>
   (make-props entries)

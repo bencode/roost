@@ -1,4 +1,4 @@
-;; Run: guile --no-auto-compile -L modules tests/ui-construction.scm
+;; Run: guile --no-auto-compile -L tests/host -L modules tests/ui-construction.scm
 (use-modules (srfi srfi-64)
              ((roost dom) #:prefix h/)
              ((roost dom) #:select (section p))
