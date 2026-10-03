@@ -1,5 +1,6 @@
 ;; The product catalog: search, category filter, sort order, and a grid of product cards.
-;; The filters are local state; the cart comes from the page.
+;; The filters are local state; the cart and the product being viewed come from the page.
+;; The quick view browses the products the catalog shows.
 (define-module (views catalog)
   #:pure
   #:export (catalog)
@@ -12,13 +13,17 @@
   #:use-module (store products)
   #:use-module (store cart)
   #:use-module (store text)
-  #:use-module (views controls))
+  #:use-module ((store browsing) #:select (neighbor))
+  #:use-module (views controls)
+  #:use-module ((views quick-view) #:select (quick-view)))
 
 (define (product-card attributes)
-  (let-props attributes (product quantity on-change)
+  (let-props attributes (product quantity on-change on-view)
     (h/article
      (props #:class (if (> quantity 0) "product in-cart" "product"))
-     (h/div (props #:class "thumb") (string (string-ref (product-category product) 0)))
+     (h/div (props #:class "thumb clickable" #:title "Quick view"
+                   #:on-click (lambda (event) (on-view product)))
+            (string (string-ref (product-category product) 0)))
      (h/h3 (product-name product))
      (h/p (props #:class "category") (product-category product))
      (h/p (props #:class "price") (money (product-price product)))
@@ -40,7 +45,7 @@
         (if (string=? order "price") by-price by-name)))
 
 (define (catalog attributes)
-  (let-props attributes (cart on-change)
+  (let-props attributes (cart on-change viewing on-view)
     (let-values (((query set-query!) (use-state ""))
                  ((category set-category!) (use-state "All"))
                  ((order set-order!) (use-state "name")))
@@ -69,5 +74,16 @@
                      (component product-card
                                 (props #:key (product-id p) #:product p
                                        #:quantity (cart-quantity cart (product-id p))
-                                       #:on-change on-change)))
-                   shown))))))))
+                                       #:on-change on-change #:on-view on-view)))
+                   shown)))
+         (and viewing
+              (let ((product (product-by-id viewing)))
+                (component quick-view
+                           (props #:product product
+                                  #:quantity (cart-quantity cart viewing)
+                                  #:on-change on-change
+                                  #:on-close (lambda () (on-view #f))
+                                  #:on-pick on-view
+                                  #:on-step (lambda (step)
+                                              (let ((next (neighbor shown product step)))
+                                                (when next (on-view next)))))))))))))
