@@ -16,7 +16,8 @@ const pages = Object.fromEntries([
 
 export default defineConfig({
   root,
-  plugins: [roost()],
+  // ROOST_REPL=1 pnpm dev: live development with a REPL (see README).
+  plugins: [roost({ repl: process.env.ROOST_REPL === '1' })],
   build: {
     outDir: path.join(root, '..', 'dist'),
     emptyOutDir: true,

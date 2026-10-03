@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "repl": "node tooling/roost-repl.js",
     "test": "pnpm test:scheme && pnpm test:js",
     "test:scheme": "guile --no-auto-compile -L tests/host -L modules tests/ui-construction.scm",
     "test:js": "vitest run"
@@ -19,7 +20,8 @@
     "react-router-dom": "7.18.4",
     "todomvc-app-css": "2.4.3",
     "vite": "8.3.2",
-    "vitest": "5.0.3"
+    "vitest": "5.0.3",
+    "ws": "^8.22.0"
   },
   "packageManager": "pnpm@10.14.0"
 }

@@ -1,6 +1,6 @@
 (define-module (roost react)
   #:pure
-  #:export (render-root)
+  #:export (render-root refresh-roots! transfer-component!)
   #:use-module (scheme base)
   #:use-module (scheme char)
   #:use-module (scheme lazy)
@@ -78,17 +78,38 @@
 ;; One React type per render procedure, keyed by the procedure itself in a weak
 ;; table so render procedures created on the fly can be collected. React calls
 ;; components as (props, undefined); length 1 passes only props.
+;;
+;; A type calls its current render procedure, which transfer-component! can replace:
+;; live reloading gives a redefined component its old type, so React keeps its state.
+(define-record-type <component-type>
+  (make-component-type js render)
+  component-type?
+  (js component-type-js)
+  (render component-type-render set-component-type-render!))
+
 (define component-types (delay (js/make-weak-table)))
 
 (define (render->react-type render)
   (let ((types (force component-types)))
-    (or (js/weak-table-ref types render #f)
-        (let ((type (js/function
-                     (lambda (js-props)
-                       (render-tree (render (js/ref js-props "roostProps"))))
-                     1)))
-          (js/weak-table-set! types render type)
-          type))))
+    (component-type-js
+     (or (js/weak-table-ref types render #f)
+         (letrec ((entry (make-component-type
+                          (js/function
+                           (lambda (js-props)
+                             (render-tree ((component-type-render entry)
+                                           (js/ref js-props "roostProps"))))
+                           1)
+                          render)))
+           (js/weak-table-set! types render entry)
+           entry)))))
+
+;; For development tools: new renders in place of old, keeping old's React type.
+(define (transfer-component! old new)
+  (let* ((types (force component-types))
+         (entry (js/weak-table-ref types old #f)))
+    (when (and entry (not (eq? old new)))
+      (set-component-type-render! entry new)
+      (js/weak-table-set! types new entry))))
 
 (define (render-tree node)
   (force builder)
@@ -306,9 +327,27 @@
   (for-each (lambda (entry) (emit-data (cdr entry) (object-name (car entry))))
             (props-entries attributes)))
 
+;; Roots by element id, as #(root node). Rendering into the same element again
+;; updates its root rather than creating a second one.
+(define roots '())
+
 (define (render-root node element-id)
-  (let* ((document (js/ref js/global "document"))
-         (create-root (js/ref (js/module "react-dom/client") "createRoot"))
-         (root (create-root (js/method document "getElementById" element-id))))
-    (js/method root "render" (render-tree node))
-    root))
+  (let ((entry (cond
+                ((assoc element-id roots) => cdr)
+                (else
+                 (let* ((document (js/ref js/global "document"))
+                        (create-root (js/ref (js/module "react-dom/client") "createRoot"))
+                        (entry (vector (create-root (js/method document "getElementById" element-id))
+                                       node)))
+                   (set! roots (cons (cons element-id entry) roots))
+                   entry)))))
+    (vector-set! entry 1 node)
+    (js/method (vector-ref entry 0) "render" (render-tree node))
+    (vector-ref entry 0)))
+
+;; For development tools: render every root again, picking up redefinitions.
+(define (refresh-roots!)
+  (for-each (lambda (entry)
+              (let ((entry (cdr entry)))
+                (js/method (vector-ref entry 0) "render" (render-tree (vector-ref entry 1)))))
+            roots))

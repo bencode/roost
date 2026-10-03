@@ -12,7 +12,7 @@ import { boot } from '../js/roost-loader.js'
 import { compileScheme, hootPaths } from '../tooling/vite-plugin-roost.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const roots = ['identity', 'children', 'unkeyed', 'dom', 'counter', 'bad', 'js-component', 'js-identity', 'mutable']
+const roots = ['identity', 'children', 'unkeyed', 'dom', 'counter', 'bad', 'js-component', 'js-identity', 'mutable', 'live', 'live-controls']
 const errors = []
 const probeCallbacks = []
 
@@ -97,6 +97,24 @@ describe('strings', () => {
     expect(byId('mutable-title').className).toBe('literal')
     await click('mutate')
     expect(byId('mutable-title').textContent).toBe('Before')
+  })
+})
+
+describe('live reloading', () => {
+  it('reuses the root when rendering into the same element again', async () => {
+    await click('live-inc')
+    await click('live-inc')
+    expect(byId('live-text').textContent).toBe('v1 2+')
+    await click('live-rerender')
+    expect(byId('live-text').textContent).toBe('v1 2+')
+    expect(errors.filter(message => message.includes('createRoot'))).toEqual([])
+  })
+
+  it('keeps component state when a definition is transferred', async () => {
+    await click('live-transfer')
+    expect(byId('live-text').textContent).toBe('v2 2+')
+    await click('live-inc')
+    expect(byId('live-text').textContent).toBe('v2 3+')
   })
 })
 

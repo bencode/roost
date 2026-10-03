@@ -3,7 +3,7 @@
         (prefix (roost dom) h/)
         (only (roost props) props props-ref)
         (only (roost hiccup) component)
-        (only (roost react) render-root)
+        (only (roost react) render-root refresh-roots! transfer-component!)
         (only (roost hooks) use-state use-effect)
         (prefix (roost js) js/))
 
@@ -120,6 +120,27 @@
                "mutate")
      (h/p (props #:id "mutable-title" #:class "literal") mutable-title))))
 
+;; Live reloading: rendering into the same element reuses its root, and a transferred
+;; component keeps its React type, so its state survives the new definition.
+(define (live-v1 attributes)
+  (let-values (((n set-n!) (use-state 0)))
+    (h/p (props #:id "live-text") "v1 " n
+         (h/button (props #:id "live-inc" #:on-click (lambda (event) (set-n! (+ n 1)))) "+"))))
+
+(define (live-v2 attributes)
+  (let-values (((n set-n!) (use-state 0)))
+    (h/p (props #:id "live-text") "v2 " n
+         (h/button (props #:id "live-inc" #:on-click (lambda (event) (set-n! (+ n 1)))) "+"))))
+
+(define (live-controls attributes)
+  (h/div
+   (h/button (props #:id "live-rerender"
+                    #:on-click (lambda (event) (render-root (component live-v1 (props)) "live")))
+             "render again")
+   (h/button (props #:id "live-transfer"
+                    #:on-click (lambda (event) (transfer-component! live-v1 live-v2) (refresh-roots!)))
+             "transfer")))
+
 ;; A JavaScript component receives DOM-style prop names.
 (define Box (js/ref (js/module "test-components") "Box"))
 
@@ -128,6 +149,8 @@
              "js-component")
 (render-root (component js-identity-parent (props)) "js-identity")
 (render-root (component mutable-text (props)) "mutable")
+(render-root (component live-v1 (props)) "live")
+(render-root (component live-controls (props)) "live-controls")
 (render-root (component identity-parent (props)) "identity")
 (render-root (component children-demo (props)) "children")
 (render-root (component unkeyed-demo (props)) "unkeyed")
