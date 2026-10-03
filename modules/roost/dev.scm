@@ -16,7 +16,9 @@
   #:use-module ((hoot syntax-objects) #:select (syntax->datum syntax-sourcev))
   #:use-module ((roost react) #:select (transfer-component! refresh-roots!))
   #:use-module ((roost js) #:prefix js/)
-  #:use-module ((roost devtools) #:select (mount-devtools!)))
+  #:use-module ((roost devtools) #:select (mount-devtools!))
+  #:use-module ((roost devtools sources) #:select (make-module-source module-source-name))
+  #:use-module ((roost devtools completion) #:select (defined-names)))
 
 ;; Offsets in text where each line starts.
 (define (line-starts text)
@@ -27,19 +29,24 @@
      (else (loop (+ i 1) starts)))))
 
 ;; The top-level forms of text, as syntax, with each one's (start . end) offsets in it.
+;; A form without a source position starts where the previous one ended.
 (define (read-forms text)
   (let ((port (open-input-string text))
         (starts (line-starts text)))
     (define (offset line column) (+ (vector-ref starts line) column))
-    (let loop ((forms '()) (spans '()))
+    (let loop ((forms '()) (spans '()) (previous-end 0))
       (let ((form (read-syntax port)))
         (if (eof-object? form)
             (values (reverse forms) (reverse spans))
-            (let ((source (syntax-sourcev form)))
+            (let ((source (syntax-sourcev form))
+                  (end (offset (port-line port) (port-column port))))
               (loop (cons form forms)
-                    (cons (cons (offset (vector-ref source 1) (vector-ref source 2))
-                                (offset (port-line port) (port-column port)))
-                          spans))))))))
+                    (cons (cons (if (vector? source)
+                                    (offset (vector-ref source 1) (vector-ref source 2))
+                                    previous-end)
+                                end)
+                          spans)
+                    end)))))))
 
 (define (module-path name)
   (let loop ((parts (map symbol->string name)) (path ""))
@@ -47,9 +54,7 @@
         path
         (loop (cdr parts) (string-append path "/" (car parts))))))
 
-;; Each application module's source as it last loaded or reloaded, newest first:
-;; #(name forms text spans), forms as data. The REPL completes names from them and
-;; shows definitions from them.
+;; Each application module's source as it last loaded or reloaded, newest first.
 (define loaded-sources '())
 
 (define (sources) loaded-sources)
@@ -59,8 +64,8 @@
   (call-with-values (lambda () (read-forms text))
     (lambda (forms spans)
       (set! loaded-sources
-            (cons (vector name (map syntax->datum forms) text spans)
-                  (filter (lambda (entry) (not (equal? (vector-ref entry 0) name)))
+            (cons (make-module-source name (map syntax->datum forms) text spans)
+                  (filter (lambda (source) (not (equal? (module-source-name source) name)))
                           loaded-sources)))
       forms)))
 
@@ -119,19 +124,6 @@
                        ;; http://host → ws://host, https://host → wss://host
                        (string-append "ws" (substring origin 4 (string-length origin)) base "/repl")))))
 
-(define (form-head datum)
-  (and (pair? datum) (car datum)))
-
-;; The name a top-level form defines, if any.
-(define (defined-name datum)
-  (and (eq? (form-head datum) 'define)
-       (pair? (cdr datum))
-       (let ((target (cadr datum)))
-         (cond
-          ((symbol? target) target)
-          ((and (pair? target) (symbol? (car target))) (car target))
-          (else #f)))))
-
 (define (binding module name)
   (let ((variable (module-local-variable module name)))
     (and variable (variable))))
@@ -139,7 +131,8 @@
 ;; A record type that exists already is kept: values in the running application are
 ;; instances of it. The development server reloads the page when a record changes.
 (define (existing-record-type? module datum)
-  (and (eq? (form-head datum) 'define-record-type)
+  (and (pair? datum)
+       (eq? (car datum) 'define-record-type)
        (pair? (cdr datum))
        (symbol? (cadr datum))
        (module-local-variable module (cadr datum))))
@@ -150,12 +143,9 @@
   (let* ((modname (cadr (read (open-input-string source))))   ; (define-module NAME ...)
          (forms (record-source! modname source))
          (module (resolve-module (the-root-module) modname))
-         (body (filter-forms module (cdr forms)))
-         (names (let loop ((forms body) (names '()))
-                  (if (null? forms)
-                      names
-                      (let ((name (defined-name (syntax->datum (car forms)))))
-                        (loop (cdr forms) (if name (cons name names) names))))))
+         (body (filter (lambda (form) (not (existing-record-type? module (syntax->datum form))))
+                       (cdr forms)))
+         (names (defined-names (map syntax->datum body)))
          (old (map (lambda (name) (binding module name)) names)))
     (for-each (lambda (form) (eval form module)) body)
     (for-each (lambda (name old)
@@ -164,13 +154,6 @@
                     (transfer-component! old new))))
               names old)
     (refresh-roots!)))
-
-(define (filter-forms module forms)
-  (let loop ((forms forms) (kept '()))
-    (cond
-     ((null? forms) (reverse kept))
-     ((existing-record-type? module (syntax->datum (car forms))) (loop (cdr forms) kept))
-     (else (loop (cdr forms) (cons (car forms) kept))))))
 
 ;; The development shell's program: (values start reload!).
 (define (dev-program base main-module)

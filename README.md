@@ -95,13 +95,13 @@ pnpm repl                                   # interactive session; ,module (stor
 pnpm repl ',module (store cart)' '(cart-count (list (cons 1 2)))'   # each argument is a line; prints, then exits
 ```
 
-With arguments, `pnpm repl` exits with status 1 when an evaluation raises an error, so scripts and coding agents can use it. Editors that speak Hoot's REPL protocol over TCP, such as Emacs with Geiser, can connect to port 37146.
+With arguments, `pnpm repl` exits with status 1 when an evaluation raises an error, so scripts and coding agents can use it. It is a plain-text REPL on port 37146, so any TCP client, such as `nc localhost 37146`, works too.
 
 Limits:
 
 - A change to the number or order of a component's hooks makes React report an error; reload the page.
 - The interpreter cannot `set!` a module's top-level variable; keep mutable state in a container such as a vector or a box.
-- Hoot's interpreter accepts only two arguments for `<`, `<=`, `=`, `>=` and `>`; compiled code accepts more.
+- Hoot's interpreter accepts only two arguments for `<`, `<=`, `=`, `>=`, `>`, `-` and `/`, so `(- x)` and `(<= 1 x 9)` fail in live mode; compiled code accepts them.
 - Modules that use `define-foreign` or inline Wasm must be compiled, so they cannot be loaded from source.
 - Interpreted code runs about three times slower than compiled code. Live mode is for development only; `pnpm build` is unaffected.
 

@@ -1,17 +1,16 @@
-;; Completion for the REPL panel's editor: the names visible in a module.
+;; The names visible in a module, for the REPL's completion and its ,names command.
 ;;
 ;; Hoot's run-time modules do not list their bindings, so the names come from the
 ;; module's source: what its header imports, expanded as the import specs say, and
 ;; what its body defines.
 (define-module (roost devtools completion)
   #:pure
-  #:export (visible-names defined-names source-defined-names completion-source)
+  #:export (visible-names defined-names completion-source)
   #:use-module (scheme base)
   #:use-module (scheme cxr)
   #:use-module (scheme lazy)
   #:use-module ((hoot lists) #:select (filter sort))
   #:use-module ((hoot modules) #:select (the-root-module resolve-module module-exported-names))
-  #:use-module ((hoot read) #:select (read))
   #:use-module ((roost js) #:prefix js/))
 
 (define (library-names name)
@@ -91,15 +90,6 @@
                '()))
           (else '()))))
   (filter symbol? (apply append (map form-names forms))))
-
-;; The names that source text defines, as strings. The text must read.
-(define (source-defined-names source)
-  (let ((port (open-input-string source)))
-    (let loop ((forms '()))
-      (let ((form (read port)))
-        (if (eof-object? form)
-            (map symbol->string (defined-names (reverse forms)))
-            (loop (cons form forms)))))))
 
 ;; forms: the module's top-level forms (its header first), or #f when unknown.
 ;; extra: further names, as strings. Returns sorted, distinct strings.
