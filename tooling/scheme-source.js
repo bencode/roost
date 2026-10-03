@@ -16,6 +16,7 @@ const skipAtmosphere = (text, i) => {
 }
 
 const incomplete = () => new Error('scheme-source: incomplete form')
+const unbalanced = () => new Error('scheme-source: unbalanced closing parenthesis')
 
 const closing = (text, token, from) => {
   const at = text.indexOf(token, from)
@@ -46,6 +47,7 @@ const readList = (text, i) => {
 
 function readDatum(text, i) {
   if (text[i] === '(') return readList(text, i + 1)
+  if (text[i] === ')') throw unbalanced()
   if (text[i] === '"') return readString(text, i)
   if (text.startsWith('#\\', i)) {
     let j = i + 3
@@ -58,6 +60,8 @@ function readDatum(text, i) {
   if (quote) return readDatum(text, i + quote[0].length)
   let j = i
   while (j < text.length && !delimiter.test(text[j])) j += 1
+  // Every datum consumes text, so reading always moves on.
+  if (j === i) throw new Error(`scheme-source: unexpected ${JSON.stringify(text[i])}`)
   return { datum: text.slice(i, j), end: j }
 }
 
