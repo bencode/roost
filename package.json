@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "repl": "node tooling/roost-repl.js",
+    "pages": "node tooling/publish-pages.js",
     "test": "pnpm test:scheme && pnpm test:js",
     "test:scheme": "guile --no-auto-compile -L tests/host -L modules tests/ui-construction.scm",
     "test:js": "vitest run"
