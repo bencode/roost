@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Scheme-first React bindings powered by Guile Hoot",
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
