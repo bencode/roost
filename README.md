@@ -4,6 +4,8 @@
 
 Roost compiles Scheme to WebAssembly with [Hoot](https://spritely.institute/hoot/), and uses React as it is.
 
+**[Live demos](https://bencode.github.io/roost/)** · [Docs](#docs)
+
 - **React as is**: components, Hooks, React 19, any npm library
 - **Scheme all the way**: Hiccup markup, records, modules
 - **Live development**: save a file, the page updates, **state is kept**; a REPL inside the page
@@ -53,12 +55,12 @@ Live development needs Hoot's `main` branch for now ([why](docs/setup.md#require
 
 ## Examples
 
-| Example | Shows |
-| --- | --- |
-| [Counter](examples/counter/main.scm) | State, effects, events |
-| [TodoMVC](examples/todomvc/main.scm) | The complete [TodoMVC](https://todomvc.com): editing, routes, persistence |
-| [Router + Query](examples/router-query/main.scm) | React Router and TanStack Query from Scheme |
-| [Checkout](examples/checkout/main.scm) | A store in modules: 200-product catalog, cart, coupon, checkout form, quick view |
+| Example | Shows | |
+| --- | --- | --- |
+| [Counter](examples/counter/main.scm) | State, effects, events | [Live](https://bencode.github.io/roost/counter/) |
+| [TodoMVC](examples/todomvc/main.scm) | The complete [TodoMVC](https://todomvc.com): editing, routes, persistence | [Live](https://bencode.github.io/roost/todomvc/) |
+| [Router + Query](examples/router-query/main.scm) | React Router and TanStack Query from Scheme | [Live](https://bencode.github.io/roost/router-query/) |
+| [Checkout](examples/checkout/main.scm) | A store in modules: 200-product catalog, cart, coupon, checkout form, quick view | [Live](https://bencode.github.io/roost/checkout/) |
 
 ## Docs
 
