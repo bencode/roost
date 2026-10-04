@@ -37,10 +37,11 @@
          (js/method (lz) "decompressFromEncodedURIComponent"
                     (substring hash (string-length hash-prefix) (string-length hash))))))
 
-;; Drops the code from the address, so a reload starts from the draft.
+;; Drops shared code from the address, so a reload starts from the draft.
 (define (clear-shared!)
-  (js/method (js/ref js/global "history") "replaceState" #f ""
-             (string-append (js/ref (location) "pathname") (js/ref (location) "search"))))
+  (when (shared-text)
+    (js/method (js/ref js/global "history") "replaceState" #f ""
+               (string-append (js/ref (location) "pathname") (js/ref (location) "search")))))
 
 (define (share-url text)
   (string-append (js/ref (location) "origin") (js/ref (location) "pathname")
@@ -50,11 +51,21 @@
   (and (>= (string-length text) (string-length prefix))
        (string=? prefix (substring text 0 (string-length prefix)))))
 
-;; Fetches starters/<name>.scm and hands its text to k.
-(define (fetch-starter name k)
+;; Fetches starters/<name>.scm and hands its text to k, or the failure's message to fail.
+(define (fetch-starter name k fail)
   (let ((response (js/method js/global "fetch" (string-append "starters/" name ".scm"))))
-    (js/method (js/method response "then" (lambda (response) (js/method response "text")))
-               "then" k)))
+    (js/method (js/method (js/method response "then"
+                                     (lambda (response)
+                                       (if (js/ref response "ok")
+                                           (js/method response "text")
+                                           (js/method (js/ref js/global "Promise") "reject"
+                                                      (js/new (js/ref js/global "Error")
+                                                              (string-append "HTTP " (number->string (js/ref response "status"))))))))
+                          "then" k)
+               "catch"
+               (lambda (error)
+                 (js/method (js/ref js/global "console") "error" "playground: cannot load a starter" error)
+                 (fail (js/ref error "message"))))))
 
 ;; The split ratios: (columns . rows), each between 0 and 1.
 (define default-layout (cons 0.5 0.62))

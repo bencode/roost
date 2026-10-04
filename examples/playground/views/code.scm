@@ -17,7 +17,7 @@
   (let-props attributes (view (text "") keys names (placeholder "") (class "code"))
     (let ((parent (use-ref #f))
           (latest (use-ref #f)))
-      (js/set! latest "current" (cons keys names))
+      (use-effect (lambda () (js/set! latest "current" (cons keys names))))
       (use-effect
        (lambda ()
          (let ((editor (make-editor (js/ref parent "current")

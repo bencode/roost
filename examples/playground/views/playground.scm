@@ -27,8 +27,9 @@
   (h/button (props #:type "button" #:title title #:on-click (lambda (event) (on-click))) label))
 
 ;; The text to start from: a shared link's code, else the draft, else a starter. A link
-;; replaces a different draft only when the reader agrees.
-(define (initial-text k)
+;; replaces a different draft only when the reader agrees. on-shared receives a link's
+;; code, which does not run until the reader runs it: it can call any JavaScript.
+(define (initial-text on-shared on-own on-fail)
   (let ((shared (shared-text))
         (draft (load-draft)))
     (clear-shared!)
@@ -37,9 +38,9 @@
            (or (not draft)
                (string=? draft shared)
                (js/method js/global "confirm" "Replace your draft with the shared code?")))
-      (k shared))
-     (draft (k draft))
-     (else (fetch-starter (car starters) k)))))
+      (on-shared shared))
+     (draft (on-own draft))
+     (else (fetch-starter (car starters) on-own on-fail)))))
 
 (define (playground attributes)
   (let-props attributes (workspace)
@@ -49,7 +50,7 @@
                  ((layout set-layout!) (use-state load-layout)))
       (let ((editor (use-ref #f)))
         (define (log! . new) (set-entries! (lambda (entries) (append entries new))))
-        (define (text) (editor-text (js/ref editor "current")))
+        (define (current-text) (editor-text (js/ref editor "current")))
 
         (define (run! text)
           (let* ((start (now))
@@ -66,10 +67,16 @@
                  (when span (editor-select! (js/ref editor "current") (car span) (cdr span)))))
               ((reload) (reload-page!)))))
 
-        (define (load! text)
+        (define (show! text)
           (editor-set-text! (js/ref editor "current") text)
-          (editor-select! (js/ref editor "current") 0 0)
+          (editor-select! (js/ref editor "current") 0 0))
+
+        (define (load! text)
+          (show! text)
           (run! text))
+
+        (define (fail! message)
+          (set-status! (cons 'error (string-append "cannot load the starter: " message))))
 
         (define (eval! text)
           (let* ((prompt (workspace-prompt workspace))
@@ -78,14 +85,39 @@
                   (output-entry (vector-ref result 0) (vector-ref result 1)))))
 
         (define (share!)
-          (js/method (js/ref js/global "navigator" "clipboard") "writeText" (share-url (text)))
-          (set-status! (cons 'ready "link copied: it carries the code")))
+          (let ((copied (js/method (js/ref js/global "navigator" "clipboard") "writeText"
+                                   (share-url (current-text)))))
+            ;; writeText resolves to undefined, which a callback without a length does
+            ;; not receive; this one takes it.
+            (js/method (js/method copied "then"
+                                  (js/function (lambda (result)
+                                                 (set-status! (cons 'ready "link copied: it carries the code")))
+                                               1))
+                       "catch"
+                       (lambda (error)
+                         (js/method (js/ref js/global "console") "error" "playground: cannot copy the link" error)
+                         (set-status! (cons 'error "cannot copy the link"))))))
 
         (define (reset!)
-          (save-draft! (text))
+          (save-draft! (current-text))
           (reload-page!))
 
-        (use-effect (lambda () (initial-text load!)) '())
+        (use-effect (lambda ()
+                      (initial-text (lambda (text)
+                                      (show! text)
+                                      (set-status! (cons 'ready "shared code: read it, then ▶ run")))
+                                    load!
+                                    fail!))
+                    '())
+
+        ;; Components fail while React renders them, outside any run: report those too.
+        (use-effect (lambda ()
+                      (let ((on-error (lambda (event)
+                                        (log! (error-entry (string-append "A component raised an error: "
+                                                                          (js/ref event "message")))))))
+                        (js/method js/global "addEventListener" "error" on-error)
+                        (lambda () (js/method js/global "removeEventListener" "error" on-error))))
+                    '())
 
         (h/div
          (props #:class (string-append "playground tab-" (symbol->string tab))
@@ -96,10 +128,10 @@
           (h/select (props #:aria-label "Starter"
                            #:value ""
                            #:on-change (lambda (event)
-                                         (fetch-starter (js/ref event "target" "value") load!)))
+                                         (fetch-starter (js/ref event "target" "value") load! fail!)))
                     (h/option (props #:value "" #:disabled #t) "starters…")
                     (map (lambda (name) (h/option (props #:key name #:value name) name)) starters))
-          (button "▶ run" "Run the module (Mod-Enter)" (lambda () (run! (text))))
+          (button "▶ run" "Run the module (Mod-Enter)" (lambda () (run! (current-text))))
           (button "⇪ share" "Copy a link that carries the code" share!)
           (button "↺ reset" "Reload: clears the preview's state" reset!)
           (h/nav (props #:class "tabs")
