@@ -8,7 +8,7 @@ Roost compiles Scheme to WebAssembly with [Hoot](https://spritely.institute/hoot
 
 - **React as is**: components, Hooks, React 19, any npm library
 - **Scheme all the way**: Hiccup markup, records, modules
-- **Live development**: save a file, the page updates, **state is kept**; a REPL inside the page
+- **Live development**: save a file, the page updates, **state is kept**; a REPL into the running page, from the terminal
 - **Small**: the complete TodoMVC is about **330 KB gzipped**, React included
 
 > **Status**: a working prototype. Not on npm yet; the API may change.
