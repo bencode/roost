@@ -185,6 +185,6 @@
                               (list (cons "Mod-Enter" run!)
                                     (cons "Mod-ArrowUp" (lambda (text) (browse! -1)))
                                     (cons "Mod-ArrowDown" (lambda (text) (browse! 1))))
-                              names "(+ 1 2)   ,m (store cart)   Mod-Enter to run"))
+                              names "(+ 1 2)   ,m (store cart)   Mod-Enter to run" #t))
     (place!)
     (js/set! panel "hidden" (not open?))))

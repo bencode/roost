@@ -2,7 +2,7 @@
 ;; the playground's module. Values that are Hiccup render in the log.
 (define-module (views repl)
   #:pure
-  #:export (repl-pane input-entry output-entry error-entry)
+  #:export (repl-pane input-entry output-entry problem-entry resolve-problems)
   #:use-module (scheme base)
   #:use-module ((roost dom) #:prefix h/)
   #:use-module ((roost props) #:select (props let-props))
@@ -15,13 +15,38 @@
 
 (define history-limit 100)
 
-;; kind: input, output, or error. previews: values to render, last first.
+;; kind: input, output, or error (the REPL's own report). previews: values to render, last
+;; first.
 (define-record-type <entry>
   (make-entry kind text previews)
   entry?
   (kind entry-kind)
   (text entry-text)
   (previews entry-previews))
+
+;; A problem with the module or a component. kind: read, load, run, or render; where:
+;; "line:column", or #f; span: what to select in the editor, or #f; detail: the full
+;; conditions; resolved?: a later run succeeded.
+(define-record-type <problem>
+  (make-problem kind where span summary detail resolved?)
+  problem?
+  (kind problem-kind)
+  (where problem-where)
+  (span problem-span)
+  (summary problem-summary)
+  (detail problem-detail)
+  (resolved? problem-resolved?))
+
+(define (problem-entry kind where span summary detail)
+  (make-problem kind where span summary detail #f))
+
+(define (resolve-problems entries)
+  (map (lambda (entry)
+         (if (problem? entry)
+             (make-problem (problem-kind entry) (problem-where entry) (problem-span entry)
+                           (problem-summary entry) (problem-detail entry) #t)
+             entry))
+       entries))
 
 (define (input-entry prompt text) (make-entry 'input (string-append prompt text) '()))
 
@@ -32,8 +57,6 @@
                   'error
                   'output)
               text previews))
-
-(define (error-entry text) (make-entry 'error text '()))
 
 ;; A value rendered in a React root of its own, so a failing component stays in its entry.
 (define (preview-node attributes)
@@ -52,9 +75,26 @@
              (h/div (props #:ref element))
              (h/pre (props #:class "error" #:ref error-text))))))
 
+;; on-locate receives a span to select in the editor.
+(define (problem-view attributes)
+  (let-props attributes (problem on-locate)
+    (h/div
+     (props #:class (if (problem-resolved? problem) "entry problem resolved" "entry problem"))
+     (h/div (props #:class "problem-line")
+            (h/span (props #:class "problem-kind") (symbol->string (problem-kind problem)) " error")
+            (and (problem-where problem)
+                 (h/button (props #:type "button"
+                                  #:class "where"
+                                  #:title "Show it in the editor"
+                                  #:on-click (lambda (event) (on-locate (problem-span problem))))
+                           (problem-where problem)))
+            (h/span (props #:class "problem-summary") (problem-summary problem)))
+     (and (not (string=? "" (problem-detail problem)))
+          (h/details (h/summary "conditions") (h/pre (problem-detail problem)))))))
+
 (define (entry-view attributes)
   (let-props attributes (entry)
-    (h/div (props #:class (string-append "entry " (symbol->string (entry-kind entry))))
+    (h/div (props #:class (string-append "entry entry-" (symbol->string (entry-kind entry))))
            (and (not (string=? "" (entry-text entry)))
                 (h/pre (entry-text entry)))
            (map (lambda (value i) (component preview-node (props #:key i #:value value)))
@@ -68,9 +108,10 @@
 (define (take items n)
   (if (or (= n 0) (null? items)) '() (cons (car items) (take (cdr items) (- n 1)))))
 
-;; on-eval receives the input's text. Mod-↑ and Mod-↓ walk through the inputs run.
+;; on-eval receives the input's text; on-locate a problem's span. Mod-↑ and Mod-↓ walk
+;; through the inputs run.
 (define (repl-pane attributes)
-  (let-props attributes (entries prompt names on-eval)
+  (let-props attributes (entries prompt names on-eval on-locate)
     (let-values (((history set-history!) (use-state '()))
                  ((cursor set-cursor!) (use-state #f)))
       (let ((input (use-ref #f))
@@ -103,14 +144,18 @@
                 (h/div (props #:class "entry intro")
                        (h/pre "The REPL runs in the module. Mod-Enter evaluates; "
                               "Mod-↑/↓ walk the history; ,help lists commands."))
-                (map (lambda (entry i) (component entry-view (props #:key i #:entry entry)))
+                (map (lambda (entry i)
+                       (if (problem? entry)
+                           (component problem-view (props #:key i #:problem entry #:on-locate on-locate))
+                           (component entry-view (props #:key i #:entry entry))))
                      entries (iota (length entries))))
-         (h/div (props #:class "input")
+         (h/div (props #:class "prompt-line")
                 (h/span (props #:class "prompt") prompt)
                 (component code-editor
                            (props #:view input
                                   #:class "code repl-input"
-                                  #:placeholder "(+ 1 2)"
+                                  #:placeholder "expression, then Mod-Enter"
+                                  #:wrap? #t
                                   #:names names
                                   #:keys (list (cons "Mod-Enter" run!)
                                                (cons "Mod-ArrowUp" (lambda (text) (browse! -1)))

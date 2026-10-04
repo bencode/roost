@@ -12,9 +12,10 @@
 
 ;; view: a ref the parent owns; it holds the CodeMirror view, to read or change the
 ;; text. keys: (key . command) pairs; a command receives the text. names returns the
-;; names to complete. The editor is made once; it calls the latest keys and names.
+;; names to complete; wrap? wraps long lines. The editor is made once; it calls the latest
+;; keys and names.
 (define (code-editor attributes)
-  (let-props attributes (view (text "") keys names (placeholder "") (class "code"))
+  (let-props attributes (view (text "") keys names (placeholder "") (class "code") (wrap? #f))
     (let ((parent (use-ref #f))
           (latest (use-ref #f)))
       (use-effect (lambda () (js/set! latest "current" (cons keys names))))
@@ -29,7 +30,8 @@
                                                     text))))
                                          keys)
                                     (lambda () ((cdr (js/ref latest "current"))))
-                                    placeholder)))
+                                    placeholder
+                                    wrap?)))
            (editor-set-text! editor text)
            (editor-select! editor 0 0)
            (js/set! view "current" editor)
