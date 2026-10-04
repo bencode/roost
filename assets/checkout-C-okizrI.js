@@ -1,0 +1,1 @@
+import{a as e,c as t,i as n,r,t as i}from"./client-B7De03n8.js";var a=`/roost/assets/checkout_main.scm-B5A-LLvp.wasm`,o=t(r()),s=t(i());n({Scheme:e,wasm:a,reflectWasmDir:`/roost/hoot`,modules:{react:o,"react-dom/client":s}});
