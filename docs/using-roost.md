@@ -93,7 +93,7 @@ Removing the listener works because a Scheme procedure is always the same JavaSc
 
 ## Developing in a running page
 
-With `ROOST_REPL=1 pnpm dev` (see [Live development](../README.md#live-development)), the page keeps running while you change it. A good order of work:
+With `ROOST_REPL=1 pnpm dev` (see [Live development](live-development.md)), the page keeps running while you change it. A good order of work:
 
 1. Look at the data in a REPL: `,m (store products)`, then `(product-by-id 0)`.
 2. Write a new function in the REPL, in its module (`,m (store browsing)`), and call it on real data until it is right; then copy it into the file.

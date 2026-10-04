@@ -16,6 +16,24 @@ const developmentOnly = /[\\/]roost[\\/](dev\.scm$|devtools)/
 const hootUrl = '/@hoot/'
 const reflectId = '\0hoot:reflect'
 
+// Apache-2.0 asks that modified files say they were changed. Minified builds drop this
+// comment; they carry the same notice in hoot/LICENSE.
+const reflectNotice =
+  "// Hoot's reflect.js (Apache-2.0), modified by Roost's Vite plugin: invert() declares its\n" +
+  '// loop variable, and the module exports Scheme, SchemeQuitError and repr.'
+
+// Built applications carry Hoot's runtime, so they carry its license too.
+const hootLicense = async () =>
+  [
+    'This application includes the runtime of Guile Hoot (https://spritely.institute/hoot/):',
+    'hoot/reflect.wasm, hoot/wtf8.wasm, reflect.js in the JavaScript bundle, and the Scheme',
+    'runtime compiled into each .wasm file. Roost modified reflect.js: invert() declares its',
+    'loop variable, and the file is loaded as an ES module. Hoot is licensed under the Apache',
+    'License, Version 2.0:',
+    '',
+    await readFile(path.join(repoRoot, 'LICENSE'), 'utf8'),
+  ].join('\n')
+
 // Ask the installed Hoot where its runtime lives, so it always matches the compiler.
 export const hootPaths = async () => {
   const { stdout } = await run('guile', [
@@ -140,7 +158,7 @@ export default function roost({ loadPaths = [path.join(repoRoot, 'modules')], re
         // Modules are strict: declare the loop variable reflect.js leaves undeclared,
         // which otherwise throws while Hoot prints a backtrace.
         const source = (await readFile(hoot.reflectJs, 'utf8')).replace('for (attr in map)', 'for (const attr in map)')
-        return `${source}\nexport { Scheme, SchemeQuitError, repr }\n`
+        return `${reflectNotice}\n${source}\nexport { Scheme, SchemeQuitError, repr }\n`
       }
       const entry = id.split('?')[0]
       if (!entry.endsWith('.scm')) return
@@ -178,6 +196,7 @@ export default function roost({ loadPaths = [path.join(repoRoot, 'modules')], re
           source: await readFile(path.join(hoot.reflectWasmDir, name)),
         })
       }
+      this.emitFile({ type: 'asset', fileName: 'hoot/LICENSE', source: await hootLicense() })
     },
   }
 }
