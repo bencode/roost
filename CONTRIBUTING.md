@@ -20,7 +20,7 @@ pnpm test     # Guile and Vitest suites
 
 | Path | Contents |
 | --- | --- |
-| `modules/roost/` | The Scheme library: `props`, `hiccup`, `dom`, `react`, `hooks`, `js`; `dev` and `devtools/` for live development |
+| `modules/roost/` | The Scheme library: `props`, `hiccup`, `dom`, `react`, `hooks`, `js`; `dev` and `devtools/` for live development and the playground |
 | `js/` | The JavaScript kernel, the React builder, the loader |
 | `tooling/` | The Vite plugin; live development (`live-dev.js`), its REPL relay, the `pnpm repl` client |
 | `examples/` | Example applications |

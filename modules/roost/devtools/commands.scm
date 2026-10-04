@@ -165,7 +165,7 @@
                      (stack (repl-debug-stack debug))
                      (all? (string=? which "all"))
                      ;; Frames below where the evaluation began belong to whatever ran
-                     ;; the REPL: the panel, the terminal connection, the REPL itself.
+                     ;; the REPL: the terminal connection, the REPL itself.
                      (frames (if all? stack (vector-copy stack (min (entry-height) (vector-length stack)))))
                      (port (open-output-string)))
                 (format-exception exn (current-output-port))

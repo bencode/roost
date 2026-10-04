@@ -98,7 +98,7 @@ With `ROOST_REPL=1 pnpm dev` (see [Live development](live-development.md)), the 
 1. Look at the data in a REPL: `,m (store products)`, then `(product-by-id 0)`.
 2. Write a new function in the REPL, in its module (`,m (store browsing)`), and call it on real data until it is right; then copy it into the file.
 3. Find what exists with `,apropos cart` and read it with `,source cart-set`.
-4. Try a component on its own: in the panel, a Hiccup result renders with the page's styles, so `(component similar-list (props …))` shows the list before it is part of any page.
+4. Try a component on its own in the [Playground](https://bencode.github.io/roost/playground/): its REPL renders a Hiccup result, so `(component similar-list (props …))` shows the list before it is part of any page.
 5. Save the file. Its definitions are evaluated again in the running page, and components keep their state. Changing a module's header, a record type, or the entry reloads the page.
 
 ## Checklist

@@ -1,6 +1,6 @@
 ;; Terminal REPLs. A page cannot listen for connections, so it connects out to the
 ;; development server, which relays terminal clients (`pnpm repl`, nc) to it. Each
-;; client gets its own session, like the panel's. Messages are JSON:
+;; client gets its own session. Messages are JSON:
 ;;   from the server: {type: "open" | "input" | "close", id, text}
 ;;   to the server:   {type: "output", id, text}   (output, then the next prompt)
 (define-module (roost devtools remote)

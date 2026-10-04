@@ -1,7 +1,7 @@
 ;; Previews: values a REPL renders rather than prints.
 (define-module (roost devtools preview)
   #:pure
-  #:export (hiccup-node? exception-text render-isolated render-into!)
+  #:export (hiccup-node? exception-text render-isolated)
   #:use-module (scheme base)
   #:use-module ((hoot error-handling) #:select (format-exception))
   #:use-module ((roost js) #:prefix js/))

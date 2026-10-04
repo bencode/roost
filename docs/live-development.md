@@ -18,17 +18,22 @@ ROOST_REPL=1 pnpm dev
 | Its header (`define-module`), a `define-record-type`, or the entry `main.scm` | The page reloads |
 | A Roost library | The shell is compiled again; the page reloads |
 
-## The REPL panel
+## The REPL
 
-Open it with the **λ button** at the bottom right, or **Ctrl+\`**.
+A REPL into the running page, from the terminal:
 
+```sh
+pnpm repl                                                         # interactive
+pnpm repl ',module (store cart)' '(cart-count (list (cons 1 2)))'   # one line per argument; prints, then exits
+```
+
+- Connects to the page that opened last; starts in its entry module.
 - **Any module**: `,m (store cart)` enters a module; call and redefine its private definitions.
 - **Errors**: open a debug level. `,bt` shows the backtrace, `,q` leaves.
-- **Hiccup results render** below the output, with the page's styles: build a component piece by piece.
-- **Editor**: [CodeMirror](https://codemirror.net), driven from Scheme. Highlighting, bracket matching, completion of visible names.
-- **Keys**: Mod+Enter runs; Mod+↑ / Mod+↓ walk the history.
-- Floats over the page; keeps its place, size, and history across reloads.
-- DOM only, no React. Builds leave it out.
+- With arguments, **exits with status 1** when an evaluation raises an error: usable from scripts and coding agents.
+- Plain text on port **37146**: `nc localhost 37146` works too.
+
+To try code in the browser as you write it, use the [Playground](https://bencode.github.io/roost/playground/).
 
 ## Commands
 
@@ -40,18 +45,6 @@ Hoot's own: `,m`, `,use`, `,d`, `,q`, `,help`. Roost adds:
 | `,apropos TEXT` | The application's definitions whose names contain TEXT, with their modules |
 | `,source NAME` | The source of NAME's definition, with the comments above it |
 | `,bt` / `,bt all` | The backtrace after an error, without the REPL's own frames; `all` keeps them |
-
-## From the terminal
-
-The same REPL, connected to the page that opened last:
-
-```sh
-pnpm repl                                                         # interactive
-pnpm repl ',module (store cart)' '(cart-count (list (cons 1 2)))'   # one line per argument; prints, then exits
-```
-
-- With arguments, **exits with status 1** when an evaluation raises an error: usable from scripts and coding agents.
-- Plain text on port **37146**: `nc localhost 37146` works too.
 
 ## Limits
 
