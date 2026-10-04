@@ -91,7 +91,7 @@
        ((eq? value unspecified) #f)
        (((session-previewable? session) value)
         (set! previews (cons value previews))
-        (display "=> #<preview>\n"))
+        (display "=> ⟨hiccup⟩\n"))
        (else (display "=> ") (write value) (newline))))
     (parameterize ((current-output-port output)
                    (current-repl repl)

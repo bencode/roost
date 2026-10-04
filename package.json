@@ -24,6 +24,7 @@
     "@lezer/highlight": "1.2.5",
     "@tanstack/react-query": "5.104.0",
     "jsdom": "27.4.0",
+    "lz-string": "1.5.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router-dom": "7.18.4",
