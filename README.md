@@ -4,7 +4,7 @@
 
 Roost compiles Scheme to WebAssembly with [Hoot](https://spritely.institute/hoot/), and uses React as it is.
 
-**[Live demos](https://bencode.github.io/roost/)** · [Docs](#docs)
+**[Playground](https://bencode.github.io/roost/playground/)** · [Live demos](https://bencode.github.io/roost/) · [Docs](#docs)
 
 - **React as is**: components, Hooks, React 19, any npm library
 - **Scheme all the way**: Hiccup markup, records, modules
@@ -57,6 +57,7 @@ Live development needs Hoot's `main` branch for now ([why](docs/setup.md#require
 
 | Example | Shows | |
 | --- | --- | --- |
+| [Playground](examples/playground/main.scm) | Write a module, run it, try it in a REPL: in the browser, nothing to install | [Live](https://bencode.github.io/roost/playground/) |
 | [Counter](examples/counter/main.scm) | State, effects, events | [Live](https://bencode.github.io/roost/counter/) |
 | [TodoMVC](examples/todomvc/main.scm) | The complete [TodoMVC](https://todomvc.com): editing, routes, persistence | [Live](https://bencode.github.io/roost/todomvc/) |
 | [Router + Query](examples/router-query/main.scm) | React Router and TanStack Query from Scheme | [Live](https://bencode.github.io/roost/router-query/) |

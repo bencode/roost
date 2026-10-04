@@ -94,7 +94,10 @@ const entryCode = ({ wasmFile, reflectWasmDir, modules, then }) =>
     then ? `}).then(${then})` : `})`,
   ].join('\n')
 
-export default function roost({ loadPaths = [path.join(repoRoot, 'modules')], repl = false } = {}) {
+// runtimeModules: entries (relative to Vite's root) compiled with Hoot's run-time module
+// system, so they can evaluate Scheme source with its interpreter, as the playground
+// does. They may use Roost's development modules, and live development leaves them alone.
+export default function roost({ loadPaths = [path.join(repoRoot, 'modules')], repl = false, runtimeModules = [] } = {}) {
   let config
   let hoot
   // Live development (ROOST_REPL=1), only while serving.
@@ -162,18 +165,26 @@ export default function roost({ loadPaths = [path.join(repoRoot, 'modules')], re
       }
       const entry = id.split('?')[0]
       if (!entry.endsWith('.scm')) return
-      if (live) return live.load(entry, file => this.addWatchFile(file))
+      const runtime = runtimeModules.includes(path.relative(config.root, entry))
+      if (live && !runtime) return live.load(entry, file => this.addWatchFile(file))
       const serving = config.command === 'serve'
       const outDir = path.join(config.cacheDir, 'roost')
       const wasmFile = path.join(outDir, `${path.relative(config.root, entry).replaceAll(path.sep, '_')}.wasm`)
       // The entry's directory holds the application's own libraries.
-      await compileScheme({ entry, output: wasmFile, loadPaths: [path.dirname(entry), ...loadPaths], optimize: serving ? 1 : undefined })
+      await compileScheme({
+        entry,
+        output: wasmFile,
+        loadPaths: [path.dirname(entry), ...loadPaths],
+        optimize: serving || runtime ? 1 : undefined,
+        features: runtime ? ['runtime-modules'] : [],
+      })
 
       const files = [...(await schemeFiles(path.dirname(entry))), ...(await Promise.all(loadPaths.map(schemeFiles))).flat()]
       files.forEach(file => this.addWatchFile(file))
-      // Roost's live development modules only run in the development shell; the npm
-      // packages they use (CodeMirror) stay out of applications.
-      const modules = await scanModules(files.filter(file => !developmentOnly.test(file)))
+      // Roost's live development modules only run in the development shell and in
+      // run-time module entries; the npm packages they use (CodeMirror) stay out of
+      // other applications.
+      const modules = await scanModules(runtime ? files : files.filter(file => !developmentOnly.test(file)))
       const reflectWasmDir = serving ? hootUrl.slice(0, -1) : `${config.base}hoot`.replace(/\/$/, '')
       return entryCode({ wasmFile, reflectWasmDir, modules })
     },

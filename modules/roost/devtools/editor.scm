@@ -1,7 +1,7 @@
-;; The REPL panel's input: CodeMirror 6, driven from Scheme through (roost js).
+;; A Scheme editor: CodeMirror 6, driven from Scheme through (roost js).
 (define-module (roost devtools editor)
   #:pure
-  #:export (make-editor editor-set-text! editor-focus!)
+  #:export (make-editor editor-text editor-set-text! editor-select! editor-focus!)
   #:use-module (scheme base)
   #:use-module ((roost js) #:prefix js/)
   #:use-module ((roost devtools completion) #:select (completion-source)))
@@ -22,22 +22,26 @@
 
 (define (editor-focus! view) (js/method view "focus"))
 
-;; A binding whose command always handles the key.
-(define (binding key command)
-  (js/object "key" key "run" (js/function (lambda (view) (command view) #t) 1)))
+;; Selects text from start to end (offsets) and scrolls it into view.
+(define (editor-select! view start end)
+  (js/method view "dispatch"
+             (js/object "selection" (js/object "anchor" start "head" end)
+                        "scrollIntoView" #t)))
 
-;; Creates the editor in parent, its styles going into root (a shadow root).
-;; on-run receives the text to evaluate, on-history -1 or 1, and names returns the
-;; names to complete. Returns the CodeMirror view.
-(define (make-editor parent root on-run on-history names)
+;; A binding whose command always handles the key; the command receives the text.
+(define (binding key command)
+  (js/object "key" key "run" (js/function (lambda (view) (command (editor-text view)) #t) 1)))
+
+;; Creates the editor in parent, its styles going into root (a shadow root or the
+;; document). keys: (key . command) pairs, such as ("Mod-Enter" . run!), taking
+;; precedence over the default keys; each command receives the editor's text. names
+;; returns the names to complete. Returns the CodeMirror view.
+(define (make-editor parent root keys names placeholder)
   (let* ((view (view-module))
          (keymap (js/ref view "keymap"))
          (EditorView (js/ref view "EditorView"))
-         (repl-keys (js/method keymap "of"
-                               (js/array
-                                (binding "Mod-Enter" (lambda (v) (on-run (editor-text v))))
-                                (binding "Mod-ArrowUp" (lambda (v) (on-history -1)))
-                                (binding "Mod-ArrowDown" (lambda (v) (on-history 1))))))
+         (own-keys (js/method keymap "of"
+                              (apply js/array (map (lambda (key) (binding (car key) (cdr key))) keys))))
          (default-keys (js/method (js/ref (autocomplete) "closeBracketsKeymap") "concat"
                                   (js/ref (commands) "defaultKeymap")
                                   (js/ref (commands) "historyKeymap")
@@ -49,10 +53,10 @@
              "root" root
              "extensions"
              (js/array
-              (js/method (js/ref (js/module "@codemirror/state") "Prec") "highest" repl-keys)
+              (js/method (js/ref (js/module "@codemirror/state") "Prec") "highest" own-keys)
               (js/method (commands) "history")
               (js/method view "drawSelection")
-              (js/method view "placeholder" "(+ 1 2)   ,m (store cart)   Mod-Enter to run")
+              (js/method view "placeholder" placeholder)
               (js/ref EditorView "lineWrapping")
               (js/method (js/ref (language) "StreamLanguage") "define" scheme)
               (js/method (language) "syntaxHighlighting"

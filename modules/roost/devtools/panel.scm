@@ -181,6 +181,10 @@
                (element "div" "theme"
                         panel
                         (button "toggle" "Roost REPL (Ctrl+`)" "λ" (lambda () (show! (not open?))))))
-    (set! editor (make-editor input shadow run! browse! names))
+    (set! editor (make-editor input shadow
+                              (list (cons "Mod-Enter" run!)
+                                    (cons "Mod-ArrowUp" (lambda (text) (browse! -1)))
+                                    (cons "Mod-ArrowDown" (lambda (text) (browse! 1))))
+                              names "(+ 1 2)   ,m (store cart)   Mod-Enter to run"))
     (place!)
     (js/set! panel "hidden" (not open?))))
