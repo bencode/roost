@@ -1,3 +1,4 @@
 /priv/docs/
 node_modules/
 dist/
+.env
