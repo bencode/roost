@@ -27,6 +27,7 @@ if (lines.length === 0) {
   let pending = [...lines]
   let started = false
   let failed = false
+  let done = false
   socket.on('data', chunk => {
     output += chunk
     if (!prompt.test(output)) return
@@ -35,11 +36,15 @@ if (lines.length === 0) {
     if (started && text) console.log(text)
     if (/Scheme error:|While executing meta-command/.test(text)) failed = true
     started = true
-    if (pending.length === 0) return socket.end()
+    if (pending.length === 0) {
+      done = true
+      return socket.end()
+    }
     socket.write(`${pending.shift()}\n`)
   })
   socket.on('close', () => {
     if (!started) console.error(output.trim() || 'roost repl: the page closed the connection')
-    process.exit(failed || !started ? 1 : 0)
+    else if (!done) console.error(`${output.trim()}\nroost repl: the connection closed before every line ran`.trim())
+    process.exit(failed || !done ? 1 : 0)
   })
 }
