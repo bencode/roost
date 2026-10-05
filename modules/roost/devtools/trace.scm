@@ -14,7 +14,7 @@
   #:use-module ((hoot exceptions) #:select (exception-with-origin? exception-origin
                                             exception-with-message? exception-message
                                             exception-with-irritants? exception-irritants))
-  #:use-module ((roost react) #:select (transfer-component! refresh-roots!))
+  #:use-module ((roost react) #:select (transfer-component!))
   #:use-module ((roost devtools sources) #:select (source-of)))
 
 (define record-limit 200)
@@ -114,9 +114,11 @@
      ((eq? (traced-var (car entries)) var) (car entries))
      (else (loop (cdr entries))))))
 
-;; Traces name as module sees it; sources: the application modules' sources.
-;; Returns what it did, as text.
+;; Traces name as module sees it, from its next call on: callers read the variable when
+;; they call, and React renders a component's type, which the wrapper takes over.
+;; sources: the application modules' sources. Returns what it did, as text.
 (define (trace! sources module name)
+  (drop-redefined!)
   (call-with-values (lambda () (lookup module name))
     (lambda (var defining defined-name)
       (let ((label (string-append (symbol->string defined-name) " " (written (module-name defining))))
@@ -132,7 +134,6 @@
             ;; A component keeps its React type, so mounted ones keep their state.
             (transfer-component! value wrapper)
             (set! traced (cons (make-traced var value wrapper label) traced))
-            (refresh-roots!)
             (string-append "tracing " label))))))))
 
 (define (restore! entry)
@@ -142,6 +143,7 @@
 
 ;; Stops tracing names as module sees them, or everything when names is empty.
 (define (untrace! module names)
+  (drop-redefined!)
   (let ((entries (if (null? names)
                      traced
                      (map (lambda (name)
@@ -151,7 +153,6 @@
                           names))))
     (for-each restore! entries)
     (set! traced (filter (lambda (entry) (not (memq entry entries))) traced))
-    (refresh-roots!)
     (if (null? entries)
         "nothing traced"
         (join (map (lambda (entry) (string-append "untraced " (traced-label entry))) entries) "\n"))))
