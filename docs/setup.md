@@ -38,6 +38,7 @@ guild compile-wasm --help
 - **Compiles** `.scm` entries with `guild compile-wasm`. The entry's directory is on the load path, so an application's own modules live next to it.
 - **Imports** the npm packages named in `(js/module "…")` calls.
 - **Serves** Hoot's runtime files, and copies them into builds with Hoot's license.
+- **Strips debug information** from built applications, about a fifth of the wasm. Compiled procedures then print as `#<procedure>`, without their names. Development keeps it.
 - **Live development**: see [Live development](live-development.md).
 
 ## Without the plugin
@@ -73,4 +74,12 @@ boot({
 
 Register every package the Scheme code passes to `js/module` in `modules`.
 
-**3. License**: the build includes Hoot's runtime (Apache-2.0). Ship Hoot's license with it.
+**3. Optionally, strip** the debug information, as the plugin does for builds:
+
+```sh
+hoot strip public/app.wasm
+```
+
+It writes the debug information to `public/app.debug.wasm`; do not deploy that file.
+
+**4. License**: the build includes Hoot's runtime (Apache-2.0). Ship Hoot's license with it.
