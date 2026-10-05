@@ -1,0 +1,1 @@
+import{a as e,c as t,i as n,r,s as i,t as a}from"./client-B7De03n8.js";import{t as o}from"./dist-BbqsMPYg.js";var s=`/roost/assets/todomvc_main.scm-YVD3bseA.wasm`,c=t(r()),l=t(a());n({Scheme:e,wasm:s,reflectWasmDir:`/roost/hoot`,modules:{react:c,"react-dom/client":l,"react-router-dom":o,"todomvc-app-css/index.css":i({})}});
