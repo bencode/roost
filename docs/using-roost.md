@@ -85,6 +85,7 @@ Removing the listener works because a Scheme procedure is always the same JavaSc
 
 - Read with `js/ref`, call methods with `js/method`, construct with `js/new`. Call a global function as a method of `js/global`: `(js/method js/global "setTimeout" thunk 400)`.
 - Pass Scheme procedures wherever a library wants a callback.
+- A callback receives JavaScript's arguments **without trailing `undefined`s** ([why](design-principles.md)). A promise that resolves to `undefined`, such as `navigator.clipboard.writeText`'s, calls its callback with no arguments, so `(lambda (result) …)` fails. Fix the count with `js/function`: `(js/function (lambda (result) …) 1)`.
 - Call hooks from libraries as functions, inside components: `((js/ref router-dom "useParams"))`.
 - Use JavaScript components with `component`, like Scheme ones: `(component Link (props #:to "/") "Back")`.
 - Import a stylesheet for its effect alone: `(js/module "todomvc-app-css/index.css")`.
