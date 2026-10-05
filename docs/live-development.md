@@ -44,7 +44,29 @@ Hoot's own: `,m`, `,use`, `,d`, `,q`, `,help`. Roost adds:
 | `,names [PREFIX]` | Names the current module sees |
 | `,apropos TEXT` | The application's definitions whose names contain TEXT, with their modules |
 | `,source NAME` | The source of NAME's definition, with the comments above it |
+| `,trace NAME ...` | Records every call of NAMEs from now on: arguments, and what they return or raise |
+| `,trace` | The calls recorded since the last `,trace`, oldest first, nested calls indented; then clears them |
+| `,untrace [NAME ...]` | Stops tracing NAMEs, or everything |
 | `,bt` / `,bt all` | The backtrace after an error, without the REPL's own frames; `all` keeps them |
+
+## Tracing
+
+See what the program does, not only its result:
+
+```sh
+pnpm repl ',module (store cart)' ',trace cart-set'
+# … use the page …
+pnpm repl ',trace'
+# (cart-set () 9 1) => ((9 . 1))
+# (cart-set ((9 . 1)) 21 1) => ((9 . 1) (21 . 1))
+```
+
+- The records stay in the page (the last 200), so a one-shot `pnpm repl` can come back for them.
+- **Components** too: `,trace product-card` records each render with its props; components keep their state.
+- Only the **application's own modules** can be traced; Roost and other compiled libraries cannot.
+- Saving a traced module ends its traces.
+- A procedure already handed out, such as a callback passed as a prop, is traced from the next render on.
+- A traced call that raises: the error is unchanged, but `,bt` starts at the trace.
 
 ## Limits
 
