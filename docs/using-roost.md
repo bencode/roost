@@ -101,6 +101,7 @@ With `ROOST_REPL=1 pnpm dev` (see [Live development](live-development.md)), the 
 3. Find what exists with `,apropos cart` and read it with `,source cart-set`.
 4. Try a component on its own in the [Playground](https://bencode.github.io/roost/playground/): its REPL renders a Hiccup result, so `(component similar-list (props …))` shows the list before it is part of any page.
 5. Save the file. Its definitions are evaluated again in the running page, and components keep their state. Changing a module's header, a record type, or the entry reloads the page.
+6. Check what the page does: `,trace cart-set`, use the page, then `,trace` lists each call with its arguments and result.
 
 ## Checklist
 

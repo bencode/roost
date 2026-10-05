@@ -1,5 +1,6 @@
 ;; Meta-commands Roost adds to Hoot's REPL, for looking into the running program:
-;; ,names ,apropos ,source, and a ,bt that leaves out frames unrelated to the error.
+;; ,names ,apropos ,source ,trace ,untrace, and a ,bt that leaves out frames unrelated
+;; to the error.
 (define-module (roost devtools commands)
   #:pure
   #:export (repl-commands)
@@ -16,6 +17,7 @@
                                             exception-source-line exception-source-column))
   #:use-module ((roost js) #:prefix js/)
   #:use-module ((roost devtools completion) #:select (visible-names defined-names))
+  #:use-module ((roost devtools trace) #:select (trace! untrace! take-trace!))
   #:use-module (roost devtools sources))
 
 ;;; Text helpers
@@ -30,6 +32,11 @@
 (define (starts-with? text prefix) (js/method text "startsWith" prefix))
 
 (define (lines text) (js/to-scheme (js/method text "split" "\n")))
+
+;; The names on a command line, as symbols.
+(define (names-in text)
+  (map string->symbol (filter (lambda (word) (not (string=? word "")))
+                              (js/to-scheme (js/method text "split" (js/new (js/ref js/global "RegExp") "\\s+"))))))
 
 (define (join-lines lines) (js/method (apply js/array lines) "join" "\n"))
 
@@ -185,9 +192,33 @@
 
 ;; sources: returns the application modules' sources (<module-source>). The result, given a session's
 ;; entry-height and defined-names thunks, is the list of commands for it.
+(define (trace-command sources)
+  (make-meta-command
+   #:name 'trace #:group 'roost #:usage "[NAME ...]"
+   #:summary "Trace calls of NAMEs; without names, show and clear the calls traced so far."
+   #:reader rest-of-line
+   #:proc (lambda (repl text)
+            (let ((names (names-in text)))
+              (display (if (null? names)
+                           (take-trace!)
+                           (join-lines (map (lambda (name) (trace! sources (current-module repl) name))
+                                            names))))
+              (newline)))))
+
+(define (untrace-command)
+  (make-meta-command
+   #:name 'untrace #:group 'roost #:usage "[NAME ...]"
+   #:summary "Stop tracing NAMEs, or everything."
+   #:reader rest-of-line
+   #:proc (lambda (repl text)
+            (display (untrace! (current-module repl) (names-in text)))
+            (newline))))
+
 (define (repl-commands sources)
   (lambda (entry-height defined)
     (list (names-command sources defined)
           (apropos-command sources)
           (source-command sources)
+          (trace-command sources)
+          (untrace-command)
           (backtrace-command entry-height))))
