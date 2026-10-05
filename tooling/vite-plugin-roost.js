@@ -2,7 +2,7 @@
 // `guild compile-wasm`, registering the npm packages used by js/module, and serving
 // Hoot's runtime files. Nothing here is needed at run time.
 import { execFile } from 'node:child_process'
-import { mkdir, readdir, readFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -60,6 +60,36 @@ export const compileScheme = async ({ entry, output, loadPaths = [], optimize, f
   } catch (error) {
     throw new Error(`guild compile-wasm failed for ${entry}\n${error.stderr || error.message}`)
   }
+}
+
+// An unsigned LEB128 number at offset: [value, offset after it].
+const readUleb = (bytes, offset) => {
+  let value = 0
+  let shift = 0
+  let byte
+  do {
+    byte = bytes[offset++]
+    value += (byte & 0x7f) * 2 ** shift
+    shift += 7
+  } while (byte & 0x80)
+  return [value, offset]
+}
+
+// The wasm without its DWARF sections (.debug_*), as `hoot strip` removes them: compiled
+// procedures lose their names and source locations (`#<procedure>`), while Hoot's own
+// backtraces keep theirs. Custom sections have id 0 and start with their name.
+export const stripDebugInfo = bytes => {
+  const kept = [bytes.subarray(0, 8)]
+  let offset = 8
+  while (offset < bytes.length) {
+    const [size, start] = readUleb(bytes, offset + 1)
+    const end = start + size
+    const [nameLength, nameStart] = bytes[offset] === 0 ? readUleb(bytes, start) : [0, start]
+    const name = Buffer.from(bytes.subarray(nameStart, nameStart + nameLength)).toString('utf8')
+    if (!name.startsWith('.debug_')) kept.push(bytes.subarray(offset, end))
+    offset = end
+  }
+  return Buffer.concat(kept)
 }
 
 const schemeFiles = async dir => {
@@ -178,6 +208,9 @@ export default function roost({ loadPaths = [path.join(repoRoot, 'modules')], re
         optimize: serving || runtime ? 1 : undefined,
         features: runtime ? ['runtime-modules'] : [],
       })
+      // Built applications ship without debug information (about a fifth smaller).
+      // Development keeps it, and so do run-time module entries: their REPL shows names.
+      if (!serving && !runtime) await writeFile(wasmFile, stripDebugInfo(await readFile(wasmFile)))
 
       const files = [...(await schemeFiles(path.dirname(entry))), ...(await Promise.all(loadPaths.map(schemeFiles))).flat()]
       files.forEach(file => this.addWatchFile(file))
